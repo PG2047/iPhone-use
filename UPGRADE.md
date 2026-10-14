@@ -8,10 +8,29 @@
 
 1. 检查 `git status`，提交已完成的源码改动。保留本地报告和无关文件。
 2. 给已验证的提交建立回退 tag；另存 `git bundle` 或源码包到仓库外。
-3. `git fetch origin --tags`，查看 `git log HEAD..origin/main` 和实际差异。
+3. 确认 `upstream` 指向作者仓库，再运行 `git fetch upstream --tags`，查看
+   `git log HEAD..upstream/main` 和实际差异。
    没有新提交时，记录检查结果即可，不重装同一份运行代码。
 4. 有更新时在维护分支合并，或从维护分支创建独立升级分支后合并。
    解决冲突时保留行为，不以整文件选择上游或本地代替检查。
+
+## GitHub 仓库与远端
+
+- 作者仓库：`https://github.com/zhongerxin/iPhone-use`，用于获取上游更新。
+- 用户维护仓库：`https://github.com/PG2047/iPhone-use`，发布维护分支与图文手册。
+- 在本次安装目录中，`origin` 仍指向作者仓库；`personal` 指向用户维护仓库。
+  从派生仓库新克隆时，`origin` 通常指向自己的仓库，不要据此误判上游没有更新。
+
+先运行 `git remote -v` 检查名称与地址。若尚无 `upstream`，添加作者仓库：
+
+```sh
+git remote add upstream https://github.com/zhongerxin/iPhone-use.git
+git fetch upstream --tags
+git log HEAD..upstream/main --oneline
+```
+
+确认差异后在维护分支合并 `upstream/main`。向自己的维护仓库推送已验证提交，
+不要把发布手册等同于向作者仓库提交 Pull Request。
 
 ## 两项修复的检查入口
 

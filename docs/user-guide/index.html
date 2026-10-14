@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>iPhone Use · 简明使用手册</title>
+<style>
+:root{--ink:#183129;--muted:#61736c;--green:#16765b;--light:#e8f4ee;--line:#dbe4de;--paper:#f6f7f3;--amber:#fff5df;--white:#fff}*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;font-size:16px;line-height:1.7}main{max-width:1060px;margin:auto;padding:40px 28px 60px}header{padding:30px 0 28px;border-bottom:1px solid var(--line)}.eyebrow{letter-spacing:2px;color:var(--green);font-size:12px;font-weight:700}h1{font-size:42px;line-height:1.2;letter-spacing:-1px;margin:15px 0}h2{font-size:25px;margin:0 0 18px;line-height:1.4}h3{font-size:18px;margin:0 0 8px}p{margin:8px 0 14px}.lead{font-size:20px;max-width:730px;color:var(--muted)}.meta{display:flex;gap:8px;flex-wrap:wrap;font-size:12px}.pill{padding:4px 11px;border:1px solid var(--line);border-radius:20px;background:white}.actions{display:flex;gap:12px;margin-top:20px}button{font:inherit;cursor:pointer;border:1px solid var(--line);border-radius:8px;padding:8px 14px;color:var(--ink);background:white}button:hover{background:var(--light)}button:focus-visible,a:focus-visible{outline:3px solid #69aeb2;outline-offset:4px}a{color:var(--green)}nav{display:flex;gap:18px;flex-wrap:wrap;font-size:14px;margin-top:22px}nav a{text-decoration:none}section{margin-top:40px;scroll-margin-top:20px}.num{display:inline-grid;place-items:center;background:var(--green);color:white;width:32px;height:32px;border-radius:50%;font-size:17px;margin-right:10px;vertical-align:3px}.panel{padding:25px;background:white;border:1px solid var(--line);border-radius:18px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.muted,figcaption{color:var(--muted);font-size:14px}.note{background:var(--light);border-left:4px solid var(--green);padding:14px 18px;border-radius:0 9px 9px 0;margin:18px 0}.note.amber{background:var(--amber);border-color:#d9a733}.prompt{position:relative;background:#f1f5f1;padding:18px;border-radius:10px}.prompt p{margin:0;padding-right:55px}.copy{position:absolute;right:10px;top:10px;font-size:12px;padding:4px 8px}.card small{color:var(--green);font-weight:600}figure{margin:0}svg{width:100%;height:auto;display:block}svg text{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif}figcaption{margin-top:10px}ol{padding-left:23px;margin:10px 0}li{padding-left:3px;margin:9px 0}.step-flow{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:20px 0}.step{position:relative;background:white;border:1px solid var(--line);border-radius:12px;padding:18px 14px}.step b{display:block;font-size:17px;margin:9px 0 4px}.step span{font-size:13px;color:var(--muted)}.step .tag{font-size:12px;color:var(--green);font-weight:700}.step:not(:last-child):after{content:'→';position:absolute;right:-16px;top:45%;font-size:20px;background:var(--paper);z-index:1;color:var(--green)}.table-wrap{overflow-x:auto}table{width:100%;border-collapse:collapse;text-align:left;background:white;border-radius:12px;overflow:hidden;font-size:14px}th,td{padding:14px 16px;border-bottom:1px solid var(--line);vertical-align:top}th{font-size:13px;background:var(--light)}td:first-child{width:28%;font-weight:600}code{font-size:.9em;background:#eaf0eb;padding:2px 5px;border-radius:4px}footer{margin-top:36px;border-top:1px solid var(--line);padding-top:18px;color:var(--muted);font-size:12px}.status{font-size:14px;min-height:24px;color:var(--green);margin-top:8px}.summary{font-size:18px;font-weight:600}.mini{font-size:14px}.section-end{display:flex;gap:16px;align-items:center}.stop-icon{background:var(--light);border-radius:16px;min-width:65px;padding:17px;font-size:25px;text-align:center}.command{padding:18px;background:#edf2ed;border:1px solid var(--line);border-radius:10px;white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px;line-height:1.7}.command code{padding:0;background:none}.actions a{align-self:center}code{overflow-wrap:anywhere}.diagram-label{font-size:18px;fill:var(--ink)}.diagram-small{font-size:14px;fill:var(--muted)}
+@media(max-width:700px){main{padding:24px 16px}h1{font-size:32px}.lead{font-size:17px}.grid{grid-template-columns:1fr}.panel{padding:17px}.step-flow{grid-template-columns:1fr 1fr}.step:nth-child(2):after{display:none}section{margin-top:30px}nav{gap:12px}td,th{padding:11px}.prompt p{padding-right:0;padding-top:28px}.step{padding:14px}}
+@media print{@page{size:A4;margin:14mm}body{background:white;font-size:11pt;line-height:1.55}main{max-width:none;padding:0}header{padding:10px 0 18px}h1{font-size:29pt}h2{font-size:19pt}.lead{font-size:13pt}.actions,nav,.copy,.status{display:none}section{margin-top:22px}.panel,.card,.step,table,figure,.note{break-inside:avoid}h2,h3{break-after:avoid}.panel{padding:15px}.prompt p{padding-right:0}.grid{gap:12px}.step-flow{gap:10px}.step span,.muted,figcaption{font-size:10pt}footer{font-size:9pt}a{color:inherit;text-decoration:none}.screen-section{break-before:page}#auth{break-before:page}#help,#xcode,#upgrade,#restore{break-before:page}svg{max-height:360px}}
+</style>
+</head>
+<body><main>
+<header>
+<div class="eyebrow">IPHONE USE / QUICK GUIDE</div>
+<h1>让 Codex 帮你操作 iPhone</h1>
+<p class="lead">接上手机，用中文说明任务。遇到登录或 Face ID，你接手；完成后，再交回 Codex。</p>
+<div class="meta"><span class="pill">适用：本机修复版 0.3.13</span><span class="pill">已完成安装与签名</span><span class="pill">更新：2026-10-14</span></div>
+<div class="actions"><button id="print">打印 / 保存为 PDF</button><a href="iPhone-Use-图文使用手册.pdf">下载 PDF</a></div>
+<nav aria-label="手册目录"><a href="#start">开始使用</a><a href="#screen">认识画面</a><a href="#tasks">怎么下指令</a><a href="#auth">登录与暂停</a><a href="#help">遇到问题</a><a href="#finish">结束使用</a><a href="#xcode">Xcode 能关吗</a><a href="#upgrade">升级保留修复</a><a href="#restore">备份与恢复</a></nav>
+</header>
+<section id="start">
+<h2><span class="num">1</span>接上手机，说出任务</h2>
+<div class="panel"><figure>
+<svg viewBox="0 0 900 235" role="img" aria-labelledby="connect-title connect-desc"><title id="connect-title">使用数据线连接 Mac 和已解锁的 iPhone</title><desc id="connect-desc">Mac 运行 Codex，经 USB 数据线连接 iPhone。保持手机解锁，在聊天里给出任务。</desc>
+<rect x="76" y="35" width="230" height="139" rx="12" fill="#eff6f1" stroke="#16765b" stroke-width="3"/><rect x="88" y="47" width="206" height="113" rx="5" fill="white"/><text x="191" y="89" text-anchor="middle" class="diagram-label" font-weight="700">Mac · Codex</text><text x="191" y="121" text-anchor="middle" class="diagram-small">在聊天里说明任务</text><path d="M60 179H322L311 191H70Z" fill="#16765b"/>
+<path d="M332 113H573Q602 113 602 139V160Q602 179 635 179H650" fill="none" stroke="#6ca58b" stroke-width="6" stroke-linecap="round"/><rect x="426" y="77" width="105" height="35" rx="17" fill="#e8f4ee"/><text x="478" y="101" text-anchor="middle" font-size="16" fill="#16765b" font-weight="700">USB 数据线</text>
+<rect x="651" y="13" width="134" height="201" rx="24" fill="#183129"/><rect x="660" y="23" width="116" height="180" rx="16" fill="#eff6f1"/><rect x="695" y="29" width="46" height="9" rx="5" fill="#183129"/><circle cx="718" cy="89" r="23" fill="#16765b"/><path d="M706 88l9 9 15-18" fill="none" stroke="white" stroke-width="4" stroke-linecap="round"/><text x="718" y="137" text-anchor="middle" class="diagram-label" font-weight="700">iPhone</text><text x="718" y="165" text-anchor="middle" class="diagram-small">保持解锁</text>
+</svg><figcaption>连接示意。原版和本机修复版均通过 USB 控制手机。手机仍可用 Wi-Fi 上网。</figcaption></figure>
+<ol><li><strong>连接：</strong>用可传数据的 USB 线连接 Mac 和 iPhone。</li><li><strong>解锁：</strong>保持手机解锁和唤醒；如有系统信任提示，由你确认。</li><li><strong>开始：</strong>在 Codex 聊天中发送下面这句话。</li></ol>
+<div class="prompt"><button class="copy" aria-label="复制开始使用指令">复制</button><p>用 iPhone Use 连接我的手机，复用现有配置，检查可用后打开手机屏幕。</p></div>
+</div>
+<p class="note"><strong>日常不需要重新安装。</strong>Codex 会检查并复用配置，必要时启动服务。新聊天会重新检查连接；看到 <code>ready=true</code> 表示手机通道可用。</p>
+<p class="mini"><strong>这次修了什么：</strong>安装时的原版 0.3.12 已使用 USB，但底层 WDA 默认监听所有网络接口，可能额外暴露到局域网。本机修复版把手机端控制和屏幕流服务限制为回环地址，保留 USB 通道；不是从 Wi-Fi 控制改成 USB 控制。</p>
+<p class="mini"><strong>Xcode 窗口可以关闭或退出。</strong>后台服务仍要运行；完整 Xcode 要保留安装。详见第 7 节。</p>
+</section>
+<section id="screen" class="screen-section">
+<h2><span class="num">2</span>认识侧边栏画面</h2>
+<div class="panel"><figure>
+<svg viewBox="0 0 900 420" role="img" aria-labelledby="screen-title screen-desc"><title id="screen-title">手机侧边栏和三个底部按钮</title><desc id="screen-desc">Live 表示预览正在更新。可以点击画面和拖动。底部从左到右依次是刷新连接、回到主屏幕、截图到 Mac 剪贴板。此图为示意，不是真实截图。</desc>
+<rect x="318" y="8" width="264" height="379" rx="24" fill="#183129"/><rect x="335" y="46" width="230" height="284" rx="14" fill="#f0f5ee"/><text x="450" y="34" fill="white" font-size="13" text-anchor="middle">iPhone　 <tspan fill="#73deac">● Live</tspan></text>
+<rect x="354" y="75" width="190" height="40" rx="8" fill="white"/><text x="371" y="101" font-size="15" fill="#183129">手机当前页面</text>
+<rect x="354" y="130" width="190" height="45" rx="8" fill="white"/><circle cx="377" cy="152" r="10" fill="#b4d9c3"/><path d="M402 148H521M402 157H488" stroke="#c1cec4" stroke-width="4" stroke-linecap="round"/>
+<rect x="354" y="188" width="190" height="45" rx="8" fill="white"/><circle cx="377" cy="210" r="10" fill="#b4d9c3"/><path d="M402 206H521M402 215H488" stroke="#c1cec4" stroke-width="4" stroke-linecap="round"/>
+<circle cx="450" cy="278" r="20" fill="none" stroke="#16765b" stroke-width="2" stroke-dasharray="4 3"/><path d="M444 275l0 18 5-5 6 10 5-3-6-10 8-1Z" fill="#16765b"/>
+<rect x="374" y="343" width="152" height="32" rx="16" fill="#365247"/><text x="400" y="366" fill="white" font-size="25" text-anchor="middle">↻</text><path d="M442 362v-9l8-7 8 7v9h-6v-6h-4v6Z" fill="none" stroke="white" stroke-width="1.6"/><rect x="491" y="349" width="16" height="13" rx="2" fill="none" stroke="white" stroke-width="1.6"/><circle cx="499" cy="355" r="3" fill="none" stroke="white" stroke-width="1.5"/>
+<path d="M510 26H650" stroke="#16765b" stroke-width="1.8"/><circle cx="510" cy="26" r="4" fill="#16765b"/><text x="663" y="30" font-size="16" fill="#183129" font-weight="700">Live：预览正在更新</text><text x="663" y="55" class="diagram-small">任务是否完成，要看结果核对</text>
+<path d="M470 278H650" stroke="#16765b" stroke-width="1.8"/><circle cx="470" cy="278" r="4" fill="#16765b"/><text x="663" y="272" font-size="16" fill="#183129" font-weight="700">点击 / 拖动</text><text x="663" y="299" class="diagram-small">你可以直接操作画面</text><text x="663" y="323" class="diagram-small">双指滑动可滚动或翻页</text>
+<path d="M399 354H285V230H248" fill="none" stroke="#16765b" stroke-width="1.6"/><text x="55" y="220" font-size="16" fill="#183129" font-weight="700">① 刷新连接</text><text x="55" y="246" class="diagram-small">重连预览，不解除认证暂停</text>
+<path d="M450 367V390H280" fill="none" stroke="#16765b" stroke-width="1.6"/><text x="55" y="375" font-size="16" fill="#183129" font-weight="700">② 回到主屏幕</text><text x="55" y="399" class="diagram-small">会改变手机当前页面</text>
+<path d="M499 362H650" fill="none" stroke="#16765b" stroke-width="1.6"/><text x="663" y="361" font-size="16" fill="#183129" font-weight="700">③ 截图到剪贴板</text><text x="663" y="387" class="diagram-small">复制到 Mac 后，可自行粘贴</text>
+</svg><figcaption>界面示意。实际尺寸和外观随手机机型变化。</figcaption></figure></div>
+<p class="mini">Codex 正在执行任务时，尽量不要同时点击。需要自己接手时，先说“暂停手机访问，我来操作”。</p>
+</section>
+<section id="tasks">
+<h2><span class="num">3</span>用一句话说明任务</h2>
+<p>说清 <strong>哪个 App、做什么、范围、要什么结果</strong>。如只想读取，也明确说出来。</p>
+<div class="grid">
+<div class="panel card"><small>示例 A · 读取信息</small><h3>整理节目收藏</h3><div class="prompt"><button class="copy" aria-label="复制节目收藏示例">复制</button><p>打开小宇宙，整理我最近收藏的 5 期节目，列出标题和主播。只读取，不取消收藏；读不到的字段标为未获取。</p></div></div>
+<div class="panel card"><small>示例 B · 查看设置</small><h3>先解释，再决定</h3><div class="prompt"><button class="copy" aria-label="复制查看设置示例">复制</button><p>打开 iPhone 的通知设置，查看微信当前的通知选项，解释各项作用。先不修改设置。</p></div></div>
+<div class="panel card"><small>示例 C · 写入内容</small><h3>保存一条备忘录</h3><div class="prompt"><button class="copy" aria-label="复制备忘录示例">复制</button><p>在备忘录新建“周末采购”，内容为“牛奶、鸡蛋、咖啡豆”。完成后核对标题和内容，不改已有笔记。</p></div></div>
+<div class="panel card"><small>通用模板 · 替换括号内容</small><h3>给出清楚的边界</h3><div class="prompt"><button class="copy" aria-label="复制通用模板">复制</button><p>在【App】完成【任务】，范围是【日期或条数】。不要【限制】。最后给我【表格或结论】，并核对【关键字段】。</p></div></div>
+</div>
+<p class="muted">示例需对应 App 已安装，且目标页面可访问。列表过长或字段读不到时，应注明范围与缺项，不把部分结果当成完整结果。</p>
+</section>
+<section id="auth">
+<h2><span class="num">4</span>登录和 Face ID：按这张图接手</h2>
+<p>遇到 App 认证时，Codex 会暂停手机访问并清除预览画面。<strong>密码和验证码只在手机上输入。</strong></p>
+<p class="mini"><strong>原版与修复版：</strong>本人完成密码、验证码和 Face ID 是原版已有的规则。原版暂停预览时保留旧画面并加遮罩；本机修复版新增清除旧画面、在插件代码中阻断读取和操作，以及恢复前的 Mac 本人确认。这里的“原版”指安装时的 0.3.12。</p>
+<div class="step-flow" aria-label="App 认证接管流程">
+<div class="step"><div class="tag">1 · 手机</div><b>完成认证</b><span>输入密码，或完成 Face ID。停留在目标页面。</span></div>
+<div class="step"><div class="tag">2 · 聊天</div><b>回复“已完成继续”</b><span>告诉 Codex 认证完成，等待 Mac 确认窗口。</span></div>
+<div class="step"><div class="tag">3 · Mac</div><b>点“恢复手机访问”</b><span>由你亲自点击。选择“保持暂停”则继续阻断。</span></div>
+<div class="step"><div class="tag">4 · Codex</div><b>读取新页面并继续</b><span>使用当前状态，不重复已完成的动作。</span></div>
+</div>
+<div class="note"><strong>“已暂停”是保护状态。</strong>刷新按钮不能解除它。聊天中说“继续”会触发恢复流程，但不能代替 Mac 确认。</div>
+<p class="mini"><strong>如果只是手机锁屏：</strong>亲自解锁后回复“已完成继续”。Codex 会检查连接，并解除对应的锁屏暂停；App 认证暂停仍需要上面的 Mac 确认。</p>
+<div class="prompt"><button class="copy" aria-label="复制主动暂停指令">复制</button><p>暂停手机访问，我要自己登录。等我完成后，再请求恢复。</p></div>
+</section>
+<section id="help">
+<h2><span class="num">5</span>遇到问题，先这样处理</h2>
+<div class="table-wrap"><table><thead><tr><th>看到的情况</th><th>你要做什么</th></tr></thead><tbody>
+<tr><td>没有 iPhone Use 工具</td><td>重连或新开 Codex 聊天。插件刚更新时，旧聊天可能仍使用旧版。</td></tr>
+<tr><td>手机锁屏 / 等待解锁</td><td>亲自解锁手机并保持唤醒，然后回复“已完成继续”。</td></tr>
+<tr><td>已暂停 / access_paused</td><td>完成手机认证，再由 Codex 请求恢复；在 Mac 窗口点击“恢复手机访问”。</td></tr>
+<tr><td>未连接 / 拔线后无画面</td><td>检查 USB 数据线和手机解锁状态，让 Codex 复用现有配置恢复服务。</td></tr>
+<tr><td>有画面，但任务失败</td><td>把错误交给 Codex 检查。Live 只说明预览更新，不证明 App 已登录或任务已完成。</td></tr>
+<tr><td>提示签名过期</td><td>让 Codex 使用你现有的 Personal Team 重建。系统要求登录、信任或输入密码时，由你操作。</td></tr>
+</tbody></table></div>
+<div class="prompt" style="margin-top:16px"><button class="copy" aria-label="复制恢复连接指令">复制</button><p>iPhone Use 当前连接有问题。请先检查状态，复用现有配置和有效构建，按实际错误修复，再验证 ready=true。不要重复执行刚才可能已生效的动作。</p></div>
+<p class="note amber"><strong>更新前保留修复。</strong>你目前用的是本地修复版。升级插件前，先让 Codex 核对两项 P0 修复是否保留。</p>
+</section>
+<section id="finish">
+<h2><span class="num">6</span>核对结果，再停止服务</h2>
+<div class="panel"><div class="section-end"><div class="stop-icon" aria-hidden="true">■</div><div><h3>先看结果是否符合要求</h3><p>核对 App、日期、条数和关键内容。发送、提交等动作如果结果不确定，先查记录，不要直接重做。</p></div></div>
+<div class="prompt"><button class="copy" aria-label="复制停止服务指令">复制</button><p>本次任务结束。请停止本次 iPhone Use 服务，并确认已停止；不要删除 App 或手机数据。</p></div>
+<p class="mini" style="margin-top:15px">确认停止后即可拔线。关闭侧边栏只是收起画面，不等于停止手机服务。</p></div>
+<p class="summary">记住这条路线：接线 → 解锁 → 说任务 → 必要时本人认证 → 核对结果 → 停止服务。</p>
+</section>
+<section id="xcode">
+<h2><span class="num">7</span>Xcode 可以关闭，后台服务要保留</h2>
+<p><strong>使用这套插件启动服务后，可以关闭 Xcode 窗口，也可以退出 Xcode。</strong>插件用独立的后台 <code>xcodebuild</code> 进程运行手机服务，不依赖 Xcode 图形界面。</p>
+<div class="panel"><figure>
+<svg viewBox="0 0 900 215" role="img" aria-labelledby="xcode-title xcode-desc"><title id="xcode-title">Xcode 窗口可以关闭，后台服务和 USB 保持运行</title><desc id="xcode-desc">三个独立部分：Xcode 窗口可退出；后台 xcodebuild 与 USB 转发需保留；iPhone 保持 USB 连接和解锁。</desc>
+<rect x="10" y="25" width="250" height="160" rx="18" fill="#f0f3f0" stroke="#dbe4de" stroke-width="2"/><text x="135" y="67" text-anchor="middle" font-size="21" fill="#183129" font-weight="700">Xcode 窗口</text><text x="135" y="107" text-anchor="middle" font-size="24" fill="#61736c">可以退出</text><text x="135" y="147" text-anchor="middle" font-size="16" fill="#61736c">保留完整 Xcode 安装</text>
+<rect x="310" y="25" width="280" height="160" rx="18" fill="#e8f4ee" stroke="#16765b" stroke-width="2"/><text x="450" y="67" text-anchor="middle" font-size="21" fill="#183129" font-weight="700">后台服务</text><text x="450" y="107" text-anchor="middle" font-size="24" fill="#16765b">保持运行</text><text x="450" y="147" text-anchor="middle" font-size="16" fill="#61736c">xcodebuild + USB 转发</text>
+<path d="M600 104H644M635 96L644 104L635 112" fill="none" stroke="#16765b" stroke-width="3"/>
+<rect x="655" y="25" width="235" height="160" rx="18" fill="#e8f4ee" stroke="#16765b" stroke-width="2"/><text x="772" y="67" text-anchor="middle" font-size="21" fill="#183129" font-weight="700">iPhone</text><text x="772" y="107" text-anchor="middle" font-size="24" fill="#16765b">USB 连接</text><text x="772" y="147" text-anchor="middle" font-size="16" fill="#61736c">保持解锁，Mac 保持唤醒</text>
+</svg><figcaption>关闭窗口不等于停止后台服务。结束使用时，请让 Codex 停止服务。</figcaption></figure></div>
+<div class="table-wrap"><table><thead><tr><th>你要做的事</th><th>是否影响使用</th></tr></thead><tbody>
+<tr><td>关闭窗口 / 退出 Xcode</td><td>本插件启动的后台服务可以继续运行。</td></tr>
+<tr><td>结束 xcodebuild 或 USB 转发</td><td>会使手机通道停止，使用期间不要结束这些进程。</td></tr>
+<tr><td>卸载 Xcode / Mac 睡眠 / 拔 USB</td><td>会影响构建、启动或连接。保留完整 Xcode，使用时让 Mac 唤醒并接好 USB。</td></tr>
+<tr><td>管理 Apple 账号、证书或设备</td><td>需要时再打开 Xcode，按系统提示操作。</td></tr>
+</tbody></table></div>
+<p class="note"><strong>手动启动的例外：</strong>如果用 Xcode 的 Product → Test 启动 WDA，它由该测试会话管理。停止测试会停止其服务；先让 Codex 检查归属，再改用插件启动。</p>
+<div class="prompt"><button class="copy" aria-label="复制关闭 Xcode 检查指令">复制</button><p>请确认 iPhone Use 是由插件后台任务启动，并检查 ready=true。确认后我会退出 Xcode 窗口，继续使用手机。</p></div>
+</section>
+<section id="upgrade">
+<h2><span class="num">8</span>升级前，先保留两项修复</h2>
+<p><strong>安装新版不会自动保留本地修复。</strong>需要保留：① WDA 仅监听回环地址；② 认证暂停阻断、清屏和本人确认恢复。</p>
+<div class="step-flow" aria-label="保留修复的升级流程">
+<div class="step"><div class="tag">1 · 保存</div><b>提交 + 回退点</b><span>把修复保存在维护分支，建立 tag，并在仓库外另存备份。</span></div>
+<div class="step"><div class="tag">2 · 合并</div><b>检查上游差异</b><span>合并更新时保留修复和测试；WDA 版本变化时重新适配补丁。</span></div>
+<div class="step"><div class="tag">3 · 测试</div><b>通过后才安装</b><span>检查网络限制、暂停阻断和界面；运行代码改变时使用新版本号。</span></div>
+<div class="step"><div class="tag">4 · 验收</div><b>重连 + 真机核对</b><span>核对加载版本、网络监听和暂停恢复。本人确认仍由你完成。</span></div>
+</div>
+<p class="note"><strong>没有更新，就保留现状。</strong>上游没有新提交、安装代码也一致时，不重装、不重建 WDA。仅更新使用手册也不需要重启手机服务。</p>
+<p><strong>不能只看 ready=true：</strong>还要核对 <code>network_hardened=true</code>、控制和屏幕流的 USB 回环端点，以及暂停和恢复行为。详细命令见 <a href="../../UPGRADE.md">升级维护流程</a>。</p>
+<div class="prompt"><button class="copy" aria-label="复制保留修复的升级指令">复制</button><p>请按 UPGRADE.md 升级 iPhone Use：先保存维护分支和回退点，检查上游差异，保留两项 P0 修复及测试。测试通过后再安装，必要时提示我重连，并核对真机网络与暂停保护；没有更新就保留现状。</p></div>
+<p class="mini"><strong>本次记录（2026-10-14）：</strong>维护提交为 <code>2c692f4</code>；当时上游没有新提交，484 项 Python 测试和 60 项界面测试通过，61 个安装文件一致。真机 READY 和回环端点已核对。本人确认弹窗的人工验收记录为 2026-10-13；这些历史结果不能代替下一次升级验收。</p>
+</section>
+<section id="restore">
+<h2><span class="num">9</span>有问题时，从备份恢复</h2>
+<p><strong>先恢复到新目录，再检查和安装。</strong>不要把旧源码直接覆盖到正在使用或尚有未保存改动的目录。</p>
+<div class="step-flow" aria-label="备份恢复流程">
+<div class="step"><div class="tag">1 · 找到备份</div><b>bundle / 源码包</b><span>bundle 保存 Git 历史；源码压缩包保存文件快照。</span></div>
+<div class="step"><div class="tag">2 · 新目录</div><b>克隆或解压</b><span>核对提交、tag 和文件。保留当前工作，便于回退。</span></div>
+<div class="step"><div class="tag">3 · 安装</div><b>复用已有配置</b><span>运行安装脚本，使用你自己的设备、Team 与有效 WDA 构建。</span></div>
+<div class="step"><div class="tag">4 · 复查</div><b>重连并验收</b><span>核对版本、READY、回环监听和暂停保护，确认恢复完成。</span></div>
+</div>
+<div class="panel">
+<h3>本次已验证的恢复点</h3>
+<p class="mini">提交：<code>2c692f46fb60246b1bff83727b898c86d8838121</code><br>标签：<code>iphone-use-local-0.3.13-p0-20261014-r1</code><br>备份目录：<code>~/Downloads/Codex/iphone-use-backups/20261014-104535-maintenance/</code><br>备份文件：<code>iphone-use-p0-maintenance-final.bundle</code></p>
+<p class="mini">该 bundle 已在新目录克隆，并核对全部 Git 跟踪文件。目录是本次安装机器上的位置；其他电脑请使用实际备份路径。备份需要另行保存，不能只保留本页上的名称。</p>
+</div>
+<p>在备份目录打开终端，可让 Codex 执行以下命令；目标目录应尚不存在：</p>
+<pre class="command"><code>git bundle verify iphone-use-p0-maintenance-final.bundle
+git clone --branch codex/iphone-use-p0-security \
+  iphone-use-p0-maintenance-final.bundle iphone-use-restored
+cd iphone-use-restored
+git rev-parse HEAD
+sh scripts/install.sh</code></pre>
+<p class="mini">使用源码 ZIP 时，解压到新目录后运行 <code>sh scripts/install.sh</code>。回退不同 WDA 版本时，旧构建不一定通用，应按检查结果决定是否重建；签名始终使用你自己的 Apple 开发团队。</p>
+<div class="prompt"><button class="copy" aria-label="复制从备份恢复指令">复制</button><p>请从已验证的 iPhone Use 备份恢复到新目录，核对提交和文件后安装。保留现有工作、手机数据和签名配置；重连后检查 READY、网络限制和暂停保护。</p></div>
+<p class="note"><strong>备份不是自动防覆盖。</strong>Git 维护分支负责保留和合并修复，仓库外备份用于故障恢复。签名私钥、手机数据和运行目录不在这份源码备份中。</p>
+</section>
+<div class="status" id="copy-status" role="status" aria-live="polite"></div>
+<footer>本手册依据本机 0.3.13 的代码、技能说明和真机验收编写。图示均为说明图，不包含个人账号或设备标识。<br>这是使用手册，不会连接或操作手机。按钮只复制指令或打开打印窗口。<a href="../../NETWORK_SECURITY.md">网络防护说明</a> · <a href="../../UPGRADE.md">升级维护流程</a></footer>
+</main>
+<script>
+document.getElementById('print').addEventListener('click',()=>window.print());
+for(const button of document.querySelectorAll('.copy'))button.addEventListener('click',async()=>{const value=button.parentElement.querySelector('p').textContent;try{await navigator.clipboard.writeText(value);button.textContent='已复制';document.getElementById('copy-status').textContent='指令已复制。请粘贴到 Codex 聊天。';setTimeout(()=>button.textContent='复制',1500)}catch{const range=document.createRange();range.selectNodeContents(button.parentElement.querySelector('p'));const selection=window.getSelection();selection.removeAllRanges();selection.addRange(range);document.getElementById('copy-status').textContent='文字已选中。请按 Command+C 复制。'}});
+</script>
+</body></html>

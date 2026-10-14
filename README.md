@@ -246,9 +246,11 @@ MIT License。第三方组件说明见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTI
 
 ## 本地 P0 修复版 0.3.13
 
+使用说明：[图文手册](docs/user-guide/README.md) · [下载 PDF](docs/user-guide/iPhone-Use-图文使用手册.pdf) · [升级与恢复](UPGRADE.md)。手册包含 Xcode 退出说明、保留两项修复的升级流程，以及本地备份恢复步骤。
+
 此本地版本基于 0.3.12，限制手机端 HTTP 与 MJPEG 为 IPv4 loopback；固定上游 commit 与补丁 SHA-256 都会校验。构建使用独立源码副本，已有原始源码与个人签名配置保留。
 
-升级后须重建一次 WDA，旧构建凭据不能启动新版服务。HTTP 和 MJPEG 都只绑定 `127.0.0.1`；没有 IPv6 listener，`USE_IP` 不能开启 LAN 访问。运行状态提供两个监听器及 USB 连接的实际本地端点，供真机核对。测试命令、证据字段和 LAN 检查限制见 [WDA 网络防护说明](NETWORK_SECURITY.md)。
+从未修复版首次升级到此修复版时，须重建一次 WDA，旧构建凭据不能启动新版服务；仅更新手册不需要重建。HTTP 和 MJPEG 都只绑定 `127.0.0.1`；没有 IPv6 listener，`USE_IP` 不能开启 LAN 访问。运行状态提供两个监听器及 USB 连接的实际本地端点，供真机核对。测试命令、证据字段和 LAN 检查限制见 [WDA 网络防护说明](NETWORK_SECURITY.md)。
 
 认证暂停会阻断插件的手机读取和动作，并抑制暂停前在途的敏感响应。`pua_screen(action="resume")` 只打开 Mac 原生确认窗口，只有本人点击「恢复手机访问」才解除同一次暂停。刷新不能替代确认。取消、超时、状态损坏时保持暂停。恢复后丢弃旧画面、旧观察和输入续传上下文。
 
