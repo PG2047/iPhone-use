@@ -121,11 +121,11 @@ Xcode 需要支持手机当前的 iOS 版本。无需越狱，也无需单独启
 
 推荐使用上面的安装提示词和下面的 `iphone-use-setup` 流程：Codex 获取本项目固定版本的 WDA，配置你的设备和签名，再完成构建、部署与启动；需要你完成 Apple 登录、设备信任、开发者模式或解锁时，会提示具体步骤。
 
-如需在 Xcode 手动处理：
+如需在 Xcode 处理账号和设备：
 
 1. 用 USB 连接自己的 iPhone，信任这台 Mac，按系统要求开启开发者模式，并在 Xcode 中配置自己的 Apple 账号。
-2. 打开获取的 WDA 源码中的 `WebDriverAgent.xcodeproj`，选择 `WebDriverAgentRunner` scheme 和自己的 iPhone；在 Runner target 的 **Signing & Capabilities** 中选择自己的 Team 与可签名的 Bundle Identifier。
-3. 使用 **Product → Test** 构建、安装并运行 WDA Runner，按手机上的实际提示完成信任。运行测试会启动 WDA 服务；安装后仍需要该服务处于运行状态。
+2. 在 **Xcode → Settings → Accounts** 确认自己的 Team 和开发证书；在 **Window → Devices and Simulators** 确认手机已配对。
+3. 将自己的 Team ID 和可签名的 Bundle ID 交给 `pua_setup` 配置，再运行 `build` 和 `start`。此流程会构建包含 loopback 补丁的隔离源码副本；按手机上的提示完成开发证书信任。
 
 本对话首次使用先调用 `pua_setup(action="status")`，复用健康服务或活动工作；缺少服务才 start 一次。start 默认最多等待 20 秒，超时后按同一 job 查询，不重复启动。服务就绪后，以 `pua_ready` 返回 `ready=true` 为准，再开始手机任务。设备与签名要求可参考 [Appium 真机准备说明](https://appium.github.io/appium-xcuitest-driver/latest/getting-started/device-setup/)。
 
@@ -173,7 +173,7 @@ sh scripts/install.sh
 读取这个列表，分段滚动并去重，说明已经覆盖的范围和还未确认的部分。
 ```
 
-输入与提交分开，工具默认不提交文字。模型需要核对关键页面、接收人、数量和最终结果。密码、验证码、Face ID 等认证交给用户完成；等待解锁或认证接管时，widget 保留暂停前的画面，叠加黑色半透明遮罩、接管手势图标和「请在手机上接管操作」提示。恢复预览后自动移除遮罩。
+输入与提交分开，工具默认不提交文字。模型需要核对关键页面、接收人、数量和最终结果。密码、验证码、Face ID 等认证交给用户完成；等待解锁或认证接管时，widget 清除旧画面，并显示「请在手机上接管操作」提示。恢复预览后自动移除遮罩。
 
 屏幕预览在同一聊天中复用已有 widget。支持直接点击实时画面、鼠标拖动和触控板双指滚动／翻页，底部提供刷新、主屏幕和截图按钮。外观按连接机型匹配：支持灵动岛的机型才显示灵动岛；其他已知圆角屏机型保留圆角和外壳；iPhone X 之前的机型、所有 iPhone SE 和未知机型仅显示无圆角、无外壳的矩形屏幕。无图像时屏幕内仅显示对应状态图标，顶部显示连接或暂停状态。预览供用户观看，模型定位仍以工具返回的实际图像或控件为依据。
 
@@ -243,3 +243,13 @@ python3 scripts/package.py
 感谢 Appium、WebDriverAgent 及相关项目的维护者和贡献者，让真实 iPhone 的自动化操作成为可能。
 
 MIT License。第三方组件说明见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+
+## 本地 P0 修复版 0.3.13
+
+此本地版本基于 0.3.12，限制手机端 HTTP 与 MJPEG 为 IPv4 loopback；固定上游 commit 与补丁 SHA-256 都会校验。构建使用独立源码副本，已有原始源码与个人签名配置保留。
+
+升级后须重建一次 WDA，旧构建凭据不能启动新版服务。HTTP 和 MJPEG 都只绑定 `127.0.0.1`；没有 IPv6 listener，`USE_IP` 不能开启 LAN 访问。运行状态提供两个监听器及 USB 连接的实际本地端点，供真机核对。测试命令、证据字段和 LAN 检查限制见 [WDA 网络防护说明](NETWORK_SECURITY.md)。
+
+认证暂停会阻断插件的手机读取和动作，并抑制暂停前在途的敏感响应。`pua_screen(action="resume")` 只打开 Mac 原生确认窗口，只有本人点击「恢复手机访问」才解除同一次暂停。刷新不能替代确认。取消、超时、状态损坏时保持暂停。恢复后丢弃旧画面、旧观察和输入续传上下文。
+
+插件升级后需要重连聊天，以加载新版服务和屏幕页面。本修复不隔离同一 Mac 用户下具有任意文件或代码权限的进程；本机原始 USB 转发访问控制属于后续 P1 范围。

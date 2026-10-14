@@ -15,6 +15,7 @@ type Gesture = {
 };
 type Preview = {
   server_time: number;
+  access_epoch?: number;
   stream_id?: string;
   frame: Frame | null;
   frame_available?: boolean;
@@ -51,7 +52,7 @@ const tools: Record<ToolName, HTMLButtonElement> = {
   screenshot: document.getElementById('tool-screenshot') as HTMLButtonElement,
 };
 const app = new App(
-  { name: 'iPhone Use Screen', version: '0.3.12' },
+  { name: 'iPhone Use Screen', version: '0.3.13' },
   { availableDisplayModes: ['fullscreen'] },
   { autoResize: false },
 );
@@ -61,6 +62,7 @@ let disposed = false;
 let inFlight = false;
 let frameSeq = 0;
 let frameGeneration = 0;
+let accessEpoch = -1;
 let streamId: string | undefined;
 let eventId = 0;
 let dimensions: Size | undefined;
@@ -89,6 +91,7 @@ const DONE: Record<ToolName, string> = { refresh: '已刷新连接', home: '已�
 const FAILED: Record<string, string> = {
   device_busy: '手机正在执行操作，请稍后再试',
   preview_paused: '认证接管期间已暂停',
+  access_paused: '手机访问已暂停，请完成认证并在 Mac 确认恢复',
   clipboard_unavailable: '截图未能写入剪贴板',
   pua_unreachable: '未连接到手机',
   phone_locked: '请先解锁手机',
@@ -330,6 +333,11 @@ function showGesture(gesture: Gesture) {
 function consume(value: unknown) {
   if (disposed || !value || typeof value !== 'object') return;
   const preview = value as Partial<Preview>;
+  if (Number.isSafeInteger(preview.access_epoch)) {
+    if (preview.access_epoch! < accessEpoch) return;
+    if (preview.access_epoch! > accessEpoch && accessEpoch >= 0) clearFrame();
+    accessEpoch = preview.access_epoch!;
+  } else if (accessEpoch >= 0) return;
   let nextAppearance = deviceAppearance;
   if (typeof preview.service_ready === 'boolean') serviceUnavailable = !preview.service_ready;
   if (typeof preview.stream_id === 'string' && preview.stream_id !== streamId) {
@@ -358,11 +366,10 @@ function consume(value: unknown) {
     if (!dimensions) fitFrame();
   }
   if (preview.paused === true) {
-    // Freeze the already displayed page underneath the handoff overlay. Invalidate
-    // older requests and input freshness; resume must fetch a frame again.
+    // Erase prior pixels and reject old-generation responses after handoff.
     frameGeneration++;
     cancelPointer();
-    retainFrame();
+    clearFrame();
     decodedAt = freshUntil = -Infinity;
     frameSeq = 0;
     root.dataset.frameSeq = '0';
@@ -372,7 +379,7 @@ function consume(value: unknown) {
     liveText.textContent = preview.pause_reason === 'device_locked' ? '等待解锁' : LIVE_TEXT.paused;
     liveText.title = preview.pause_reason === 'device_locked'
       ? '解锁 iPhone 后继续任务，或点击刷新恢复预览'
-      : '预览已暂停；完成手机认证后继续任务或点击刷新恢复画面';
+      : '手机访问已暂停；完成认证后请求恢复，并在 Mac 确认窗口中同意';
     showEmpty(preview.pause_reason === 'device_locked' ? 'locked'
       : preview.pause_reason === 'authentication' ? 'authentication' : 'paused');
     return;
