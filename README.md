@@ -173,7 +173,7 @@ sh scripts/install.sh
 读取这个列表，分段滚动并去重，说明已经覆盖的范围和还未确认的部分。
 ```
 
-输入与提交分开，工具默认不提交文字。模型需要核对关键页面、接收人、数量和最终结果。密码、验证码、Face ID 等认证交给用户完成；等待解锁或认证接管时，widget 清除旧画面，并显示「请在手机上接管操作」提示。恢复预览后自动移除遮罩。
+输入与提交分开，工具默认不提交文字。模型需要核对关键页面、接收人、数量和最终结果。密码、设备解锁和 Face ID 等认证交给用户完成；明确授权的普通 App 短信登录可填写指定手机号，优先使用系统自动填充，必要时仅读取本次登录短信，详见 [短信登录说明](skills/iphone-use/references/sms-login.md)。已有暂停仍需按当前版本恢复；等待解锁或认证接管时，widget 清除旧画面，并显示「请在手机上接管操作」提示。恢复预览后自动移除遮罩。
 
 屏幕预览在同一聊天中复用已有 widget。支持直接点击实时画面、鼠标拖动和触控板双指滚动／翻页，底部提供刷新、主屏幕和截图按钮。外观按连接机型匹配：支持灵动岛的机型才显示灵动岛；其他已知圆角屏机型保留圆角和外壳；iPhone X 之前的机型、所有 iPhone SE 和未知机型仅显示无圆角、无外壳的矩形屏幕。无图像时屏幕内仅显示对应状态图标，顶部显示连接或暂停状态。预览供用户观看，模型定位仍以工具返回的实际图像或控件为依据。
 
@@ -244,9 +244,15 @@ python3 scripts/package.py
 
 MIT License。第三方组件说明见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
+## 本地 0.3.14 短信登录流程
+
+明确授权后，可按指定设备、App 和手机号完成普通短信登录。先核对本次短信，再使用 iOS 自动填充；需要读取“信息”时仅查看对应短信。既有认证暂停仍需本人确认恢复。完整流程与记录限制见 [短信登录说明](skills/iphone-use/references/sms-login.md)。
+
+下方 0.3.13 为安全修复基线；旧版图文手册描述的是该版本，短信登录例外以 0.3.14 的技能说明为准。
+
 ## 本地 P0 修复版 0.3.13
 
-使用说明：[图文手册](docs/user-guide/README.md) · [下载 PDF](docs/user-guide/iPhone-Use-图文使用手册.pdf) · [升级与恢复](UPGRADE.md)。手册包含 Xcode 退出说明、保留两项修复的升级流程，以及本地备份恢复步骤。
+使用说明：[图文手册](https://github.com/PG2047/iPhone-use/blob/codex/iphone-use-p0-security/docs/user-guide/README.md) · [下载 PDF](https://github.com/PG2047/iPhone-use/blob/codex/iphone-use-p0-security/docs/user-guide/iPhone-Use-图文使用手册.pdf) · [升级与恢复](https://github.com/PG2047/iPhone-use/blob/codex/iphone-use-p0-security/UPGRADE.md)。手册包含 Xcode 退出说明、保留两项修复的升级流程，以及本地备份恢复步骤。
 
 此本地版本基于 0.3.12，限制手机端 HTTP 与 MJPEG 为 IPv4 loopback；固定上游 commit 与补丁 SHA-256 都会校验。构建使用独立源码副本，已有原始源码与个人签名配置保留。
 
