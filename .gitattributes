@@ -1,3 +1,6 @@
+# Blank context markers are required by the unified patch format.
+experiments/tree_element_handles/wda.patch -whitespace
+
 # A blank context line in this pinned diff contains one space by definition.
 # Preserve patch bytes and its SHA-256; normal source whitespace checks remain.
 server/patches/wda-16.14.0-loopback.patch whitespace=-blank-at-eol
