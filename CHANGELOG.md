@@ -1,3 +1,9 @@
+# Local 0.3.14 authorized SMS sign-in
+
+- Add an opt-in skill workflow for user-specified phone numbers and matching SMS sign-in codes.
+- Prefer iOS AutoFill, scope message access to the current login, and state transcript retention limits.
+- Preserve the 0.3.13 WDA loopback and native pause/resume protections; no WDA rebuild is needed.
+
 # Local 0.3.13 security fixes
 
 - Restrict both phone listeners to loopback with a verified patch and runtime endpoint evidence.
