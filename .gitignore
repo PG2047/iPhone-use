@@ -22,8 +22,15 @@ posthog.local.json
 # Local experiments are excluded from Git and release packages.
 /plugins/
 
-# Development notes and evaluation cases are maintained locally only.
-/docs/
+# Keep local reports private; publish only the reviewed user guide.
+/docs/*
+!/docs/user-guide/
+/docs/user-guide/*
+!/docs/user-guide/README.md
+!/docs/user-guide/index.html
+!/docs/user-guide/export_pdf.py
+!/docs/user-guide/iPhone-Use-图文使用手册.pdf
+!/docs/user-guide/images/
 /evals/
 
 /promo/
