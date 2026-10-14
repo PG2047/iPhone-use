@@ -1,3 +1,9 @@
+# Local 0.3.13 security fixes
+
+- Restrict both phone listeners to loopback with a verified patch and runtime endpoint evidence.
+- Enforce shared authentication pause, stale response suppression, and native user consent to resume.
+- Clear paused preview pixels and reject old preview epochs.
+
 # 更新记录
 
 ## 0.3.12 — 2026-10-13

@@ -248,3 +248,7 @@ MIT License. See [third-party notices](THIRD_PARTY_NOTICES.md).
 ### Direct preview interaction
 
 Click the live phone image to tap, or drag and release to swipe. Coordinates follow the displayed image as the panel resizes. Two-finger trackpad scrolling and mouse wheels scroll or page the phone, following the system scroll direction. Each wheel burst sends one swipe; momentum and input received during an operation are not queued. Long presses, phone multi-touch, pinch zoom, and keyboard input are not supported. Input is disabled while the preview is paused, offline, stale, or busy. Cancelled gestures and releases outside the image do nothing. Timed-out gestures are never replayed automatically; inspect the phone before trying again.
+
+## Local P0 fix 0.3.13
+
+Both device HTTP and MJPEG listeners are restricted to IPv4 loopback by a hash-pinned patch on the pinned upstream commit. Authentication pause blocks plugin reads/actions and suppresses stale in-flight responses. Resume only requests native Mac user confirmation; a tool call, refresh, timeout, or READY cannot grant authentication consent. Reconnect the chat after updating. Arbitrary same-user code/file access and the raw host USB forwarding endpoint remain outside this MCP access boundary.

@@ -128,10 +128,10 @@ class AnalyticsTests(unittest.TestCase):
             self.assertIs(runtime.call("pua_type_text", {"text": "private"}), value)
         with patch.object(runtime, "_dispatch", side_effect=WDAError("phone_locked", "private")):
             with self.assertRaises(WDAError):
-                runtime.call("pua_tap", {})
+                runtime.call("pua_tap", {"x": 1, "y": 1})
         # A telemetry bug must also leave successful operations unchanged.
         with patch.object(runtime, "_dispatch", return_value=value), patch.object(runtime.analytics, "tool_result", side_effect=RuntimeError):
-            self.assertIs(runtime.call("pua_type_text", {}), value)
+            self.assertIs(runtime.call("pua_type_text", {"text": "private"}), value)
 
     def test_slow_network_and_full_queue_do_not_block_tools_or_close(self):
         waiting, release = threading.Event(), threading.Event()
