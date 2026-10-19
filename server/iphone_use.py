@@ -24,12 +24,13 @@ from wda_setup import SetupManager, state_directory, network_hardened
 from wda_apps import AppCatalog
 from wda_screen import ScreenHub
 from wda_access import AccessGate
+from wda_auth import AuthWaiter
 import wda_image
 from analytics import Analytics
 
 PUAError=WDAError
-VERSION="0.3.14"
-SCREEN_URI="ui://iphone-use/phone-0.3.14.html"
+VERSION="0.3.17"
+SCREEN_URI="ui://iphone-use/phone-0.3.17.html"
 # Codex scopes reuse to the host, chat, server and UI resource. A stable result
 # ID keeps repeated READY/open/pause/resume calls in that chat on one panel,
 # including after the MCP process reconnects; no device identifiers are needed.
@@ -95,7 +96,11 @@ SCHEMAS={
 BATCH_OPS=["tap","swipe","type_text","launch_app","press_button","wait","observe","scroll_find"]
 SCHEMAS["batch"]=obj({"steps":{"type":"array","minItems":1,"maxItems":20,"items":{"oneOf":[obj({"op":{"type":"string","const":op},"args":SCHEMAS[op]},("op","args")) for op in BATCH_OPS]}}},("steps",))
 SCHEMAS["ready"]["examples"]=[{"recover":True,"screenshot":False}]
-SCHEMAS["screen"]=obj({"action":string("Default open displays the live iPhone sidebar. Pause blocks phone access. Resume requests native Mac confirmation; only the user can approve it.",enum=["open","pause","resume"])})
+SCHEMAS["screen"]=obj({"action":string("Open/pause the sidebar; wait_auth auto-resumes after on-phone authentication. resume is an alias for wait_auth; neither opens a Mac dialog.",enum=["open","pause","wait_auth","resume"]),
+ "bundle_id":string("Target App for wait_auth; never switch apps during the check."),
+ "ready_label":string("Known noneditable label on the post-auth page. No credentials."),
+ "auth_label":string("Previously observed authentication heading that must disappear. No credentials."),
+ "timeout":num(1,25)})
 SCHEMAS["screen_frame"]=obj({"after_seq":num(0,9007199254740991,"integer"),"last_event_id":num(0,9007199254740991,"integer")})
 SCHEMAS["screen_action"]=obj({
  "action":string("Preview controls: refresh, home, screenshot, refresh viewport geometry, or a user pointer tap/drag in iPhone points.",enum=["refresh","home","screenshot","tap","drag","viewport"]),
@@ -112,7 +117,7 @@ DESCRIPTIONS={
  "find":"Query selector fields or a PUA predicate directly without a whole tree. Returns matches in tree order with index, type, texts and rect; this tool's selector documents the fields every selector accepts.",
  "tap":"Tap the element a selector resolves to after on-screen and hittable checks, or tap point coordinates with optional contextual observation_id. If the selector fails, the error returns a screenshot and tap points: tap by x/y in the next call instead of trying other selectors. Executes once optimistically; expect opts into a postcondition. Request tree/both if the next decision needs the new page.",
  "swipe":"One gesture; default verify=false/observe=none skips XML checks. verify=true checks geometry once; failure returns a screenshot even with none/tree, without another gesture. Inspect it before acting; no progress does not prove list completeness.",
- "type_text":"Enter the full intended Unicode text into an editable nonsecure field; no short-text trial or mandatory readback. Omit selector to type into the field that already has keyboard focus, which is how to continue after a selector failed: tap the field by x/y, then type. Send the whole text in one call: long text is typed in bounded requests, and a result with input_complete=false returns a continue_token to pass alone in the next call, after which verify/submit/expect/observe run. verify=true opts into exact readback before submit; expect opts into a page postcondition. Newlines need explicit intent; submit defaults false. Never replay uncertain input/submission.",
+ "type_text":"Enter full Unicode text in a nonsecure field. After selector failure, tap its visible x/y then type without selector. Send long text whole; input_complete=false returns continue_token: pass it alone until complete, then original verify/submit/expect/observe run. verify=true reads back; expect checks a postcondition. No trial text or default readback. Newlines need explicit intent; submit defaults false. Never replay uncertain input/submission.",
  "press_button":"Home uses the dedicated PUA homescreen endpoint once; default skips foreground polling. verify=true checks SpringBoard for Home, expect can check a page. Volume effects cannot be semantically verified.",
  "launch_app":"Activate once using a resolved bundle ID, optimistically by default. verify=true polls foreground up to five seconds; expect checks the intended page. Request observation for the next decision. Never blindly replay uncertain activation.",
  "wait":"Bounded semantic presence polling for expected target. Presence is a UI postcondition, not proof of business correctness.",
@@ -124,7 +129,7 @@ DESCRIPTIONS={
 DESCRIPTIONS["apps"]="Resolve a real bundle ID by installed-device inventory, bundled verified aliases, or Apple's Search API. Query app name before launch instead of guessing. Store metadata does not prove installation; check installed_verified and publisher/country."
 READS={"doctor","observe","find","wait","metrics","apps"}
 READS.update(("screen","screen_frame"))
-DESCRIPTIONS["screen"]="Open or reuse the live iPhone screen in the Codex side panel. No phone actions or UI controls. Pause blocks phone reads and actions during authentication. Resume requests native Mac user confirmation; it cannot grant consent. READY also opens or reuses this view by default."
+DESCRIPTIONS["screen"]="Open or reuse the live iPhone screen in the Codex side panel. wait_auth resumes after phone authentication, without Mac clicks. READY also opens or reuses this view by default."
 DESCRIPTIONS["screen_frame"]="App-only cached live preview and action cursor events. Never reads XML, starts sessions or occupies the phone operation lock."
 DESCRIPTIONS["screen_action"]="App-only toolbar of the live preview, pressed by the user: refresh the preview stream, send the iPhone Home, or copy a screenshot to the Mac clipboard. Refused while the preview is paused for authentication."
 
@@ -343,7 +348,9 @@ class Runtime:
         if name=="pua_screen":
             action=args.get("action","open")
             if action=="pause":self.screen.set_paused(True)
-            elif action=="resume":return self.access.request_resume()
+            elif action in ("wait_auth","resume"):
+                result=AuthWaiter(self).wait(**{k:v for k,v in args.items() if k!="action"})
+                return {**result,"confirmation_required":False,"runtime_version":VERSION}
             return self.screen.start()
         lock_path=self.state_dir/"operation.lock"
         cache_path=self.state_dir/"session.json"
@@ -707,7 +714,7 @@ INSTRUCTIONS=(
  "Execute routine actions optimistically: observe=none and verify=false are defaults, verified=false/verification_deferred=true is normal and does not require a separate verification call. If the next decision needs the resulting page, request observe=tree/both in the action and inspect previous success while planning that next step. "
  "Chain known steps in batch; do not batch speculative repeated swipes toward an unknown target. Inspect the next page first, using a screenshot when tree truncation hides the boundary. explicit expect/verify opts into checking key outcomes. Send long text whole: when type_text returns input_complete=false, call it again with only continue_token; a batch stopped by input_continues or time_budget continues from stopped_at. "
  "Verify final critical results before reporting completion. Retry or replan only after observing a definite failure; never replay uncertain input/submission or an already executed multi-step operation wholesale. No_scroll_progress from explicit verification does not prove empty/complete data. "
- "For App passwords or Face ID call pua_screen(action=pause); phone_locked already auto-pauses the preview for device unlock, so do not overwrite that reason with an extra pause. Pause phone calls and use the available host question tool (request_user_input_async in Default), first option exactly 已完成继续. Wait for the actual user answer; async return or preselection is not confirmation. After the actual user completion answer, pua_screen(action=resume) to request the native Mac confirmation for App authentication or legacy/unknown pause. Wait for the user to approve that dialog and for paused=false before any new read. Never automate that dialog or change runtime state to grant consent. For device unlock run READY once; successful READY clears only its matching device_locked pause. READY/open never clear App authentication or unknown pause. Continue remaining work from that fresh state. "
+ "For App passwords or Face ID call pua_screen(action=pause), tell the user to finish on the phone, then keep calling pua_screen(action=wait_auth, bundle_id=target, ready_label=known_post_auth_label or auth_label=observed_auth_heading, timeout=25). Do not request a chat completion reply or a Mac confirmation. phone_locked already pauses as device_locked; wait_auth needs no label for that case. Waiting probes return only status, never field values, trees or screenshots. A waiting result is not completion: keep the current task active and repeat bounded waits. A cleared UI is not proof of login or business success: obtain fresh state and continue only the remaining authorized work. Never replay uncertain submissions. For unsupported/custom authentication do not guess a marker; report the detection limit. resume is the same automatic probe as wait_auth and never opens a Mac dialog. No Mac user confirmation is required; missing page evidence or a timeout must never be described as waiting for a Mac click. "
  "Operation action_complete/verified fields do not mean the user's entire task is complete. Track all deliverables, give commentary progress and continue tools while work remains; final only after completion or a concrete blocker. For an unavailable MCP binding use the skill's direct Runtime fallback with the same operation lock."
 )
 

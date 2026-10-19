@@ -77,9 +77,7 @@ class ScreenProtocolTests(unittest.TestCase):
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
-        confirmation = patch("wda_access.AccessGate._confirm_on_mac", return_value=False)
-        self.confirm_on_mac = confirmation.start()
-        self.addCleanup(confirmation.stop)
+
 
     def runtime(self, isolated=False):
         directory = self.directory
@@ -186,7 +184,7 @@ class ScreenProtocolTests(unittest.TestCase):
         self.assertEqual(result["structuredContent"], screen.frame_result)
         self.assertEqual(client.calls, [])
 
-    def test_open_pause_and_resume_request_bypass_operation_lock_but_need_user_consent(self):
+    def test_open_pause_and_targetless_resume_bypass_operation_lock_without_a_dialog(self):
         runtime, client, screen = self.runtime()
         with (Path(self.directory.name) / "operation.lock").open("a") as lock:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -194,12 +192,11 @@ class ScreenProtocolTests(unittest.TestCase):
             paused = runtime.call("pua_screen", {"action": "pause"})
             resumed = runtime.call("pua_screen", {"action": "resume"})
         self.assertTrue(paused["paused"])
-        runtime.access.confirmation.join(timeout=2)
-        self.assertTrue(resumed["confirmation_required"])
+        self.assertFalse(resumed["confirmation_required"])
+        self.assertEqual(resumed["state"], "auth_target_required")
         self.assertTrue(resumed["paused"])
         self.assertTrue(screen.paused())
         self.assertEqual(client.calls, [])
-        self.confirm_on_mac.assert_called_once_with()
 
     def test_ready_open_and_authentication_calls_share_one_host_widget_session(self):
         runtime, client, screen = self.runtime()
@@ -210,7 +207,6 @@ class ScreenProtocolTests(unittest.TestCase):
                                     ("pua_ready", {"screenshot": False, "recover": False}),
                                     ("pua_screen", {"action": "resume"})):
                 results.append(self.call_over_stdio(runtime, name, arguments))
-        runtime.access.confirmation.join(timeout=2)
         identifiers = [result["_meta"]["openai/widgetSessionId"] for result in results if "_meta" in result]
         self.assertTrue(identifiers[0])
         self.assertEqual(len(set(identifiers)), 1)
@@ -220,7 +216,7 @@ class ScreenProtocolTests(unittest.TestCase):
         self.assertEqual(json.loads(results[3]["content"][0]["text"])["error"]["code"], "access_paused")
         self.assertNotIn("_meta", results[3])
         self.assertTrue(results[4]["structuredContent"]["paused"])
-        self.assertTrue(results[4]["structuredContent"]["confirmation_required"])
+        self.assertFalse(results[4]["structuredContent"]["confirmation_required"])
         # Session identity is host metadata only: it must not duplicate model data
         # or couple the display lifecycle to a phone session or user action.
         for result in results:

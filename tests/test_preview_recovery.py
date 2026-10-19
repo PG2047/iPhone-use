@@ -57,7 +57,7 @@ class PreviewRecoveryTests(unittest.TestCase):
         self.assertEqual([p for _, p, _ in self.client.actions()], ["/session"])
         self.assertFalse(any(p == "/screenshot" for _, p, _ in self.client.calls))
 
-    def test_authentication_and_legacy_pause_require_native_user_confirmation(self):
+    def test_authentication_and_legacy_pause_require_page_evidence_without_mac_confirmation(self):
         for legacy in (False, True):
             with self.subTest(legacy=legacy):
                 self.hub.set_paused(False)
@@ -75,26 +75,14 @@ class PreviewRecoveryTests(unittest.TestCase):
                 self.assertEqual(self.client.calls, before)
                 self.assertEqual(self.other.start()["pause_reason"], reason)
                 self.assertTrue(self.runtime.call("pua_screen", {})["paused"])
-                with patch.object(self.runtime.access, "_confirm_on_mac", return_value=False) as confirm:
+                self.runtime.identify_device = Mock()
+                with patch("subprocess.run") as process:
                     result = self.runtime.call("pua_screen", {"action": "resume"})
-                    self.runtime.access.confirmation.join(timeout=2)
-                    confirm.assert_called_once_with()
-                self.assertTrue(result["confirmation_required"])
+                process.assert_not_called()
+                self.assertFalse(result["confirmation_required"])
+                self.assertEqual(result["state"], "auth_target_required")
                 self.assertTrue(self.hub.paused())
-
-                release = threading.Event()
-                def user_confirmation():
-                    return release.wait(2)
-                with patch.object(self.runtime.access, "_confirm_on_mac", side_effect=user_confirmation):
-                    try:
-                        result = self.runtime.call("pua_screen", {"action": "resume"})
-                        self.assertTrue(result["paused"])
-                        self.assertTrue(result["confirmation_required"])
-                    finally:
-                        release.set()
-                        self.runtime.access.confirmation.join(timeout=2)
-                self.assertFalse(self.hub.paused())
-                self.assertTrue(self.ready()["ready"])
+                self.assertEqual(self.client.calls, before)
 
     def test_failed_health_check_does_not_clear_a_lock_pause(self):
         self.lock_failure()

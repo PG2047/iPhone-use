@@ -6,13 +6,12 @@ with arbitrary code/file access as that user remains outside this MCP boundary.
 import contextlib
 import fcntl
 import os
-import subprocess
 import threading
 from wda_client import WDAError
 
 
 def paused_error(uncertain=False):
-    return WDAError("access_paused", "Phone access is paused. Finish authentication on the iPhone, then request resume and confirm the native Mac dialog.",
+    return WDAError("access_paused", "Phone access is paused. Finish authentication on the iPhone; use pua_screen action=wait_auth to detect completion without a Mac confirmation.",
                     uncertain=uncertain, details={"action_executed": "unknown" if uncertain else False,
                     "response_suppressed": True, "replay_action": False})
 
@@ -21,8 +20,6 @@ class AccessGate:
     def __init__(self, screen):
         self.screen = screen
         self.local = threading.local()
-        self.confirmation = None
-        self.confirmation_lock = threading.Lock()
 
     @contextlib.contextmanager
     def state(self):
@@ -94,35 +91,3 @@ class AccessGate:
         with self.state() as state:
             self.check(token, state)
             yield
-
-    @staticmethod
-    def _confirm_on_mac():
-        script = '''display dialog "手机认证是否已完成？恢复后，iPhone Use 可以读取屏幕并操作手机。" with title "iPhone Use：恢复手机访问" buttons {"保持暂停", "恢复手机访问"} default button "保持暂停" cancel button "保持暂停" giving up after 120
-return button returned of result'''
-        try:
-            result = subprocess.run(["/usr/bin/osascript", "-e", script], capture_output=True,
-                                    text=True, timeout=125, check=False)
-            return result.returncode == 0 and result.stdout.strip() == "恢复手机访问"
-        except (OSError, subprocess.SubprocessError):
-            return False
-
-    def request_resume(self):
-        if not self.screen.paused():
-            return {"confirmation_required": False, **self.screen.start()}
-        with self.confirmation_lock:
-            if self.confirmation is None or not self.confirmation.is_alive():
-                pause_id = self.screen.reconnect_pause_id()
-                def confirm():
-                    # Cross-process deduplication; retries cannot stack dialogs.
-                    path = self.screen.state_dir / ".resume-confirmation.lock"
-                    fd = os.open(path, os.O_CREAT | os.O_RDWR, 0o600)
-                    try:
-                        try: fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-                        except BlockingIOError: return
-                        if self._confirm_on_mac():
-                            self.screen.resume_after_confirmation(pause_id)
-                    finally:
-                        os.close(fd)
-                self.confirmation = threading.Thread(target=confirm, name="phone-user-consent", daemon=True)
-                self.confirmation.start()
-        return {"confirmation_required": True, "next_step": "Confirm Restore phone access in the native Mac dialog. Tool calls and elapsed time do not grant consent.", **self.screen.start()}

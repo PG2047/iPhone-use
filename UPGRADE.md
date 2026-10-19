@@ -37,11 +37,12 @@ git log HEAD..upstream/main --oneline
 | 修复 | 实现入口 | 回归检查 |
 |---|---|---|
 | 手机服务仅监听回环地址 | `server/patches/wda-16.14.0-loopback.patch`、`server/wda_setup.py`、READY 网络校验 | `tests/test_network_hardening.py`、`tests/fixtures/wda_loopback_probe.m`、`NETWORK_SECURITY.md` |
-| 暂停阻断及本人确认恢复 | `server/wda_access.py`、Runtime/WDA client、`server/wda_screen.py`、CLI 输出与 `ui/src/app.ts` | `tests/test_access.py`、screen/protocol 测试、`ui/tests/widget.test.mjs` |
+| 暂停阻断及手机认证自动恢复 | `server/wda_access.py`、Runtime/WDA client、`server/wda_screen.py`、CLI 输出与 `ui/src/app.ts` | `tests/test_access.py`、screen/protocol 测试、`ui/tests/widget.test.mjs` |
 
 认证暂停应阻断树、截图、动作、批处理和刷新；旧队列、在途响应和旧帧不能
-在暂停或恢复后泄露。恢复必须由用户亲自确认同一次暂停；取消、超时或状态
-损坏时保持暂停。不要让模型通过工具参数声明“用户已确认”。
+在暂停或恢复后泄露。默认由 `wait_auth` 连续检测手机解锁、目标 App 和页面标记后恢复同一次暂停；
+不要求用户回到 Mac 确认。普通读取和操作仍被阻断，探测不返回字段值或图片。
+通道异常、空页面或新的暂停不能当作认证完成。`resume` 是自动检测的兼容别名，不再创建 Mac 确认窗口。
 
 WDA 固定版本改变时，重新审查并适配补丁，更新固定 commit 和补丁 SHA-256，
 执行原生测试，再重建 WDA。旧构建标记不能用于未经核验的新二进制。
@@ -72,10 +73,9 @@ git diff --check
    才重建 WDA。不要为了插件文档更新重建手机服务。
 4. 获取 `ready=true`，并核对 `network_hardened=true`；两个监听器均为
    `127.0.0.1`，控制与 MJPEG 的实际 USB local endpoint 也一致。
-5. 改动了暂停链路、工具入口或 UI 时，在用户可以接手的时段运行
-   `python3 scripts/verify_p0_device.py`。用户本人依次选择“保持暂停”和
-   “恢复手机访问”；脚本核对暂停期间无手机请求、取消保持暂停、确认后恢复。
-   不自动点击确认窗口。
+5. 改动暂停链路后运行 `tests/test_auth_wait.py` 和原有 access / screen 测试。
+   在用户实际遇到认证时，验证 `pause → wait_auth → fresh observation`，只记录
+   状态和结果，不记录密码或输入画面。`verify_p0_device.py` 使用明确的目标 App 和页面标记验收，不再包含 Mac 确认步骤。
 6. 保存本次版本、提交、测试、文件核对和真机结果。没有实测的项目明确标注；
    之前的验收不能冒充本次验收。
 

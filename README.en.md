@@ -251,4 +251,12 @@ Click the live phone image to tap, or drag and release to swipe. Coordinates fol
 
 ## Local P0 fix 0.3.13
 
-Both device HTTP and MJPEG listeners are restricted to IPv4 loopback by a hash-pinned patch on the pinned upstream commit. Authentication pause blocks plugin reads/actions and suppresses stale in-flight responses. Resume only requests native Mac user confirmation; a tool call, refresh, timeout, or READY cannot grant authentication consent. Reconnect the chat after updating. Arbitrary same-user code/file access and the raw host USB forwarding endpoint remain outside this MCP access boundary.
+Both device HTTP and MJPEG listeners are restricted to IPv4 loopback by a hash-pinned patch on the pinned upstream commit. Authentication pause blocks plugin reads/actions and suppresses stale in-flight responses. Both `wait_auth` and its `resume` alias require phone-state evidence before clearing a pause. Neither opens a Mac confirmation dialog. Refresh, timeout, or READY cannot clear an authentication pause. Reconnect the chat after updating. Arbitrary same-user code/file access and the raw host USB forwarding endpoint remain outside this MCP access boundary.
+
+## Local 0.3.15: automatic authentication handoff
+
+After the user authenticates on the phone, `pua_screen(action="wait_auth")` checks lock state, the target app, and known page markers. It clears only the matching pause after two successful checks. The task repeats bounded waits; no chat reply or Mac confirmation is required. Checks return no field values, trees, or pixels. Custom screens without a known marker remain paused. UI clearance is not proof of login or business success: observe fresh state before continuing. `resume` uses the same automatic checks. Reconnect the chat once after installation.
+
+## 0.3.16
+
+The native Mac confirmation path has been removed. `resume` is now an alias for `wait_auth`; both require phone-state evidence and never open a Mac dialog. Earlier version descriptions of manual confirmation are historical.
