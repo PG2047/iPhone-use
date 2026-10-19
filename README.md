@@ -247,7 +247,7 @@ MIT License。第三方组件说明见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTI
 
 ## 本地 0.3.1501
 
-基于上游 0.3.15 合并，包含上游的 `pua_screenshot` 系统截屏工具和埋点调整；本地版本号从此按 `0.<上游 minor>.<上游 patch × 100 + 本地序号>` 编号，详见维护分支的 `UPGRADE.md`。
+基于上游 0.3.15 合并，包含上游的 `pua_screenshot` 系统截屏工具和埋点调整；本地版本号从此按 `0.<上游 minor>.<上游 patch × 100 + 本地序号>` 编号，详见维护分支的 `UPGRADE.md`。本地版注册 MCP 时设置 `IPHONE_USE_ANALYTICS=0`，匿名使用统计默认关闭。
 
 ## 本地 0.3.15 手机认证后自动继续
 

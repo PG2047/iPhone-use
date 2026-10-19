@@ -54,7 +54,9 @@ def main():
     print(json.dumps(installation,ensure_ascii=False),flush=True)
     # Same name as the plugin registration: Config wins over Plugin in Codex,
     # so there is one namespace, without the shared agent-plugin tool budget.
-    subprocess.run(["codex","mcp","add","iphone_use","--","python3",str(server)],check=True)
+    # The local maintenance build is a modified fork: keep its usage out of the
+    # upstream PostHog and GA4 dashboards. The upstream default stays unchanged.
+    subprocess.run(["codex","mcp","add","iphone_use","--env","IPHONE_USE_ANALYTICS=0","--","python3",str(server)],check=True)
     retire_previous_registration()
 
 

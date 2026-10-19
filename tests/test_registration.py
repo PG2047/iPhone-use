@@ -37,7 +37,7 @@ class RegistrationTests(unittest.TestCase):
         with patch.object(registration.subprocess,"run") as run:
             self.invoke(self.installation)
         self.assertEqual(run.call_args_list, [
-            call(["codex","mcp","add","iphone_use","--","python3",str(self.root/"server/iphone_use.py")],check=True),
+            call(["codex","mcp","add","iphone_use","--env","IPHONE_USE_ANALYTICS=0","--","python3",str(self.root/"server/iphone_use.py")],check=True),
             call(["codex","mcp","get","iphone_wda","--json"],capture_output=True,text=True,check=False)])
 
     def test_upgrade_removes_only_owned_mcp_and_disables_previous_plugin_preserving_other_settings(self):
