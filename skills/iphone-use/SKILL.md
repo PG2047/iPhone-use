@@ -65,6 +65,8 @@ for (const block of result.content ?? []) {
 
 ## App 与常规动作
 
+需要在手机里发送、上传或使用当前画面的截图时，先调用 `pua_screenshot()` 触发 iOS 系统截屏并保存到手机相册，再在 iPhone「照片」App 或目标 App 的相册选择器中找到并使用，核对最终结果。`pua_observe(mode="screenshot")` 仅供模型观察，不保存到手机相册；这类任务不要转到 Mac 截图、剪贴板或网页传图。
+
 需要把手机中的图片、视频或其他文件传回 Mac 使用时，参照 [AirDrop 文件传回 Mac](references/airdrop.md)，发送后到下载目录找到文件即可使用。
 
 已知并核验过的 bundle ID 可直接 launch；需要离线查常用 App 时用 `pua_apps(source="catalog", query=...)` 或 [常用 App 目录](references/apps.md)。未知或同名 App 用 `source="auto"` 查本机候选，仍无结果才查 Apple。不要连续猜 ID；招商银行主应用为 `com.cmbchina.MPBBank`。商店或目录记录不证明本机安装，`installed_verified=true` 才是安装证据。启动后准备下一步的观察会同时显示实际前台，不额外增加默认前台验收。

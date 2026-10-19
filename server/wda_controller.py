@@ -619,6 +619,18 @@ class PhoneController:
         return result
 
     @action_result
+    def screenshot(self):
+        if self.screen is not None and self.screen.paused():
+            fail("preview_paused","The preview is paused for authentication; no system screenshot was requested.",action_executed=False)
+        # Consumer-page Snapshot event: iOS captures and saves on the device.
+        # GET /screenshot only returns pixels to the host and does not save them.
+        self.post("/wda/performIoHidEvent",{"page":0x0C,"usage":0x65,"duration":0.005})
+        result=self.after()
+        result.update(screenshot_requested=True,destination="iPhone Photos",
+                      next_step="Find the new screenshot in iPhone Photos or the app's photo picker and use it there. Check the saved image before reporting success; do not repeat an uncertain capture.")
+        return result
+
+    @action_result
     def press_button(self,name,observe="none",verify=False,expect=None):
         if name not in ("home","volumeup","volumedown"):
             fail("invalid_argument","Supported buttons: home, volumeup, volumedown.")

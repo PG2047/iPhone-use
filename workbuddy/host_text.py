@@ -23,9 +23,9 @@ INSTRUCTIONS = [
 
 TOOL_DESCRIPTIONS = {
     "pua_screen": [
-        ("Open or reuse the live iPhone screen in the Codex side panel.",
+        ("Open/reuse iPhone preview.",
          "Open or reuse the live iPhone screen in the WorkBuddy side panel."),
-        ("READY also opens or reuses this view by default.", "READY does not open it: call this once after the first READY in a chat."),
+        ("READY opens preview too.", "READY does not open it: call this once after the first READY in a chat."),
     ],
 }
 
@@ -50,8 +50,8 @@ for (const block of result.content ?? []) {
         ("宿主提问工具可按实际需要使用", "宿主提问工具 `AskUserQuestion` 可按实际需要使用"),
     ],
     "skills/iphone-use/references/tool-fallback.md": [
-        ("普通版提供 17 个模型工具；先查看本回合实际可调用的工具绑定（支持时用 ALL_TOOLS 或工具搜索），不能只从 tools/list、文档或先前聊天推断已经绑定。0.1.6 的 install.sh 同时注册同名标准 MCP，避免 Codex 插件共享说明预算隐藏工具，并保留完整 batch schema。新版安装后重新连接聊天；",
-         "普通版提供 17 个模型工具，WorkBuddy 中名为 `mcp__iphone_use__pua_*`；先查看本回合实际可调用的工具绑定，不能只从 tools/list、文档或先前聊天推断已经绑定。WorkBuddy 版由 `workbuddy/install.py` 把标准 MCP `iphone_use` 写入 `~/.workbuddy/mcp.json`；安装或更新后需要在「连接器管理」信任该服务并新开会话；"),
+        ("普通版提供 18 个模型工具；先查看本回合实际可调用的工具绑定（支持时用 ALL_TOOLS 或工具搜索），不能只从 tools/list、文档或先前聊天推断已经绑定。0.1.6 的 install.sh 同时注册同名标准 MCP，避免 Codex 插件共享说明预算隐藏工具，并保留完整 batch schema。新版安装后重新连接聊天；",
+         "普通版提供 18 个模型工具，WorkBuddy 中名为 `mcp__iphone_use__pua_*`；先查看本回合实际可调用的工具绑定，不能只从 tools/list、文档或先前聊天推断已经绑定。WorkBuddy 版由 `workbuddy/install.py` 把标准 MCP `iphone_use` 写入 `~/.workbuddy/mcp.json`；安装或更新后需要在「连接器管理」信任该服务并新开会话；"),
         ("通过 `functions.exec` 时逐个内容块转发：文字用 `text(block.text)`，图片用 `image(block)`；不要 `text(result)` 把截图变成 base64 文本。图片无法转发时用 `view_image` 打开 `image.path` / `error.observation.image.path`。",
          "截图作为图片块随结果返回；结果里没有看到图片时，用读取文件的工具打开 `image.path` / `error.observation.image.path`，不要把 base64 文本当成截图。"),
         ("从当前项目或已安装插件确定 `<PLUGIN_ROOT>`，不要照抄某人的版本 cache 路径。",
