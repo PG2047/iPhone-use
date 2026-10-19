@@ -336,6 +336,14 @@ class ScreenHub:
                     resumed = True
         return resumed
 
+    def resume_after_auth_probe(self, expected_id, expected_epoch):
+        """Clear only the pause checked by the bounded, content-free auth probe."""
+        with self._state_transaction() as state:
+            if state["paused"] and expected_id and state["pause_id"] == expected_id and state["access_epoch"] == expected_epoch:
+                state.update(paused=False, pause_reason=None, pause_id=None, access_epoch=state["access_epoch"] + 1)
+                return True
+        return False
+
     def set_paused(self, paused, reason="authentication"):
         if reason not in ("authentication", "device_locked"):
             raise ValueError("Unknown preview pause reason")

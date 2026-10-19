@@ -24,6 +24,7 @@ from wda_setup import SetupManager, state_directory
 from wda_apps import AppCatalog
 from wda_screen import ScreenHub
 from wda_access import AccessGate
+from wda_auth import AuthWaiter
 import wda_image
 from analytics import Analytics
 
@@ -96,7 +97,11 @@ SCHEMAS={
 BATCH_OPS=["tap","swipe","type_text","launch_app","press_button","wait","observe","scroll_find"]
 SCHEMAS["batch"]=obj({"steps":{"type":"array","minItems":1,"maxItems":20,"items":{"oneOf":[obj({"op":{"type":"string","const":op},"args":SCHEMAS[op]},("op","args")) for op in BATCH_OPS]}}},("steps",))
 SCHEMAS["ready"]["examples"]=[{"recover":True,"screenshot":False}]
-SCHEMAS["screen"]=obj({"action":string("Default open displays the live iPhone sidebar. Pause before password/Face ID takeover; resume only after the user confirms completion.",enum=["open","pause","resume"])})
+SCHEMAS["screen"]=obj({"action":string("Open/pause; wait_auth checks phone evidence. resume follows user completion.",enum=["open","pause","wait_auth","resume"]),
+ "bundle_id":string("Target App; no app switching."),
+ "ready_label":string("Known post-auth label."),
+ "auth_label":string("Auth heading that must disappear."),
+ "timeout":num(1,25)})
 SCHEMAS["screen_frame"]=obj({"after_seq":num(0,9007199254740991,"integer"),"last_event_id":num(0,9007199254740991,"integer")})
 SCHEMAS["screen_action"]=obj({
  "action":string("Preview controls: refresh, home, screenshot, refresh viewport geometry, or a user pointer tap/drag in iPhone points.",enum=["refresh","home","screenshot","tap","drag","viewport"]),
@@ -126,7 +131,7 @@ DESCRIPTIONS={
 DESCRIPTIONS["apps"]="Resolve a real bundle ID by installed-device inventory, bundled verified aliases, or Apple's Search API. Query app name before launch instead of guessing. Store metadata does not prove installation; check installed_verified and publisher/country."
 READS={"doctor","observe","find","wait","metrics","apps"}
 READS.update(("screen","screen_frame"))
-DESCRIPTIONS["screen"]="Open or reuse the live iPhone screen in the Codex side panel. No phone actions or UI controls. Pause the preview before password/Face ID user takeover; resume after explicit completion. READY also opens or reuses this view by default."
+DESCRIPTIONS["screen"]="Open/reuse iPhone preview. wait_auth checks phone evidence; READY opens preview too."
 DESCRIPTIONS["screen_frame"]="App-only cached live preview and action cursor events. Never reads XML, starts sessions or occupies the phone operation lock."
 DESCRIPTIONS["screen_action"]="App-only toolbar of the live preview, pressed by the user: refresh the preview stream, send the iPhone Home, or copy a screenshot to the Mac clipboard. Refused while the preview is paused for authentication."
 
@@ -347,6 +352,9 @@ class Runtime:
             action=args.get("action","open")
             if action=="pause":self.screen.set_paused(True)
             elif action=="resume":self.screen.set_paused(False)
+            elif action=="wait_auth":
+                result=AuthWaiter(self).wait(**{k:v for k,v in args.items() if k!="action"})
+                return {**result,"confirmation_required":False,"runtime_version":VERSION}
             return self.screen.start()
         lock_path=self.state_dir/"operation.lock"
         cache_path=self.state_dir/"session.json"
@@ -706,7 +714,7 @@ INSTRUCTIONS=(
  "Execute routine actions optimistically: observe=none and verify=false are defaults, verified=false/verification_deferred=true is normal and does not require a separate verification call. If the next decision needs the resulting page, request observe=tree/both in the action and inspect previous success while planning that next step. "
  "Chain known steps in batch; do not batch speculative repeated swipes toward an unknown target. Inspect the next page first, using a screenshot when tree truncation hides the boundary. explicit expect/verify opts into checking key outcomes. Send long text whole: when type_text returns input_complete=false, call it again with only continue_token; a batch stopped by input_continues or time_budget continues from stopped_at. "
  "Verify final critical results before reporting completion. Retry or replan only after observing a definite failure; never replay uncertain input/submission or an already executed multi-step operation wholesale. No_scroll_progress from explicit verification does not prove empty/complete data. "
- "For App passwords or Face ID call pua_screen(action=pause); phone_locked already auto-pauses the preview for device unlock, so do not overwrite that reason with an extra pause. Pause phone calls and use the available host question tool (request_user_input_async in Default), first option exactly 已完成继续. Wait for the actual user answer; async return or preselection is not confirmation. After the actual user completion answer, explicitly pua_screen(action=resume) for App authentication or legacy/unknown pause, then read fresh state. For device unlock run READY once; successful READY clears only its matching device_locked pause. READY/open never clear App authentication or unknown pause. Continue remaining work from that fresh state. "
+ "For App passwords or Face ID call pua_screen(action=pause), tell the user to finish on the phone, then keep calling pua_screen(action=wait_auth, bundle_id=target, ready_label=known_post_auth_label or auth_label=observed_auth_heading, timeout=25). Do not request a chat completion reply or a Mac confirmation. phone_locked already pauses as device_locked; wait_auth needs no label for that case. Waiting probes return only status, never field values, trees or screenshots. A waiting result is not completion: keep the current task active and repeat bounded waits. A cleared UI is not proof of login or business success: obtain fresh state and continue only the remaining authorized work. Never replay uncertain submissions. For unsupported/custom authentication do not guess a marker; report the detection limit. Use wait_auth for automatic continuation. Legacy resume remains available after explicit user completion; never call it to bypass a failed automatic check. "
  "Operation action_complete/verified fields do not mean the user's entire task is complete. Track all deliverables, give commentary progress and continue tools while work remains; final only after completion or a concrete blocker. For an unavailable MCP binding use the skill's direct Runtime fallback with the same operation lock."
 )
 

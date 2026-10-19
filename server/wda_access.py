@@ -11,7 +11,7 @@ from wda_client import WDAError
 
 
 def paused_error(uncertain=False):
-    return WDAError("access_paused", "Phone access is paused. Finish authentication on the iPhone, then explicitly resume access with pua_screen action=resume.",
+    return WDAError("access_paused", "Phone access is paused. Finish authentication on the iPhone; use pua_screen action=wait_auth to detect completion without a Mac confirmation.",
                     uncertain=uncertain, details={"action_executed": "unknown" if uncertain else False,
                     "response_suppressed": True, "replay_action": False})
 
