@@ -252,7 +252,7 @@ Click the live phone image to tap, or drag and release to swipe. Coordinates fol
 
 ## Local 0.3.1501
 
-Merged upstream 0.3.15, including the `pua_screenshot` system screenshot tool and the analytics changes. Local versions now follow `0.<upstream minor>.<upstream patch × 100 + local serial>`; see UPGRADE.md.
+Merged upstream 0.3.15, including the `pua_screenshot` system screenshot tool and the analytics changes. Local versions now follow `0.<upstream minor>.<upstream patch × 100 + local serial>`; see UPGRADE.md. The local build registers the MCP server with `IPHONE_USE_ANALYTICS=0`, so anonymous usage reporting is off by default.
 
 ## Local P0 fix 0.3.13
 

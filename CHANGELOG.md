@@ -3,6 +3,7 @@
 - 合并上游 0.3.13 到 0.3.15：埋点去重、GA4 直连上报、`pua_screenshot` 系统截屏工具。本地版本号从此按 `0.<上游 minor>.<上游 patch × 100 + 本地序号>` 编号，见 UPGRADE.md。
 - 保留回环监听、暂停门控与 `wait_auth` 自动恢复；`pua_screenshot` 同样受暂停门控约束，暂停时返回 `access_paused`。
 - `pua_screen` 的工具描述改用 #46 的短版本，使工具目录保持在模型上下文预算内。
+- 本地版注册 MCP 时设置 `IPHONE_USE_ANALYTICS=0`，PostHog 与 GA4 上报均关闭；上游默认值不变。
 
 ## 0.3.17
 
