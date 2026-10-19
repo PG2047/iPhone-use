@@ -72,7 +72,7 @@ SKILL_NOTES = {
 
 - 手机认证默认通过 `wait_auth` 自动等待，不使用 `AskUserQuestion` 收集完成通知。
 - 工具名为 `mcp__iphone_use__pua_*`，由 `~/.workbuddy/mcp.json` 中的标准 MCP `iphone_use` 提供。本回合没有这些工具时，请用户在「连接器管理」信任 `iphone_use` 并新开会话。
-- 手机屏幕在 WorkBuddy 侧边栏，由 `pua_screen()` 打开并复用。面板底部没有刷新 / 主屏幕 / 截图按钮：WorkBuddy 不放行面板自己发起的工具调用，预览恢复默认由 `pua_screen(action="wait_auth")` 自动检测完成；`resume` 仅用于用户明确表示完成后的手动恢复，不要让用户去点刷新。面板没有画面不影响控制通道，也不是任务失败；按工具返回的观察继续。
+- 手机屏幕在 WorkBuddy 侧边栏，由 `pua_screen()` 打开并复用。面板底部没有刷新 / 主屏幕 / 截图按钮：WorkBuddy 不放行面板自己发起的工具调用，预览恢复默认由 `pua_screen(action="wait_auth")` 自动检测完成；`resume` 同样使用自动检测，不要让用户去点刷新。面板没有画面不影响控制通道，也不是任务失败；按工具返回的观察继续。
 - 运行数据在 `~/.local/share/iphone-use`，与 Codex 版共用同一份配置、构建和操作锁；返回 `device_busy` 时可能是另一个宿主正在操作手机。
 """,
     "skills/iphone-use-setup/SKILL.md": """

@@ -184,7 +184,7 @@ class ScreenProtocolTests(unittest.TestCase):
         self.assertEqual(result["structuredContent"], screen.frame_result)
         self.assertEqual(client.calls, [])
 
-    def test_open_pause_resume_bypass_operation_lock_without_a_dialog(self):
+    def test_open_pause_and_targetless_resume_bypass_operation_lock(self):
         runtime, client, screen = self.runtime()
         with (Path(self.directory.name) / "operation.lock").open("a") as lock:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -192,8 +192,10 @@ class ScreenProtocolTests(unittest.TestCase):
             paused = runtime.call("pua_screen", {"action": "pause"})
             resumed = runtime.call("pua_screen", {"action": "resume"})
         self.assertTrue(paused["paused"])
-        self.assertFalse(resumed["paused"])
-        self.assertFalse(screen.paused())
+        self.assertFalse(resumed["confirmation_required"])
+        self.assertEqual(resumed["state"], "auth_target_required")
+        self.assertTrue(resumed["paused"])
+        self.assertTrue(screen.paused())
         self.assertEqual(client.calls, [])
 
     def test_ready_open_and_authentication_calls_share_one_host_widget_session(self):
@@ -213,7 +215,8 @@ class ScreenProtocolTests(unittest.TestCase):
         self.assertTrue(results[3]["isError"])
         self.assertEqual(json.loads(results[3]["content"][0]["text"])["error"]["code"], "access_paused")
         self.assertNotIn("_meta", results[3])
-        self.assertFalse(results[4]["structuredContent"]["paused"])
+        self.assertTrue(results[4]["structuredContent"]["paused"])
+        self.assertFalse(results[4]["structuredContent"]["confirmation_required"])
         # Session identity is host metadata only: it must not duplicate model data
         # or couple the display lifecycle to a phone session or user action.
         for result in results:

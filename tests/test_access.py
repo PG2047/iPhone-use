@@ -59,16 +59,26 @@ class AccessTests(unittest.TestCase):
         frame = self.runtime.call("pua_screen_frame", {})
         self.assertIsNone(frame["frame"])
 
-    def test_manual_resume_preserves_upstream_semantics_without_a_dialog(self):
+    def test_resume_without_target_keeps_pause_and_never_requests_confirmation(self):
         self.runtime.identify_device = Mock()
         self.other.set_paused(True)
         epoch = self.other._read_state()["access_epoch"]
         with patch("subprocess.run") as process:
             result = self.runtime.call("pua_screen", {"action": "resume"})
-        self.assertFalse(result["paused"])
-        self.assertGreater(self.other._read_state()["access_epoch"], epoch)
+        self.assertFalse(result["confirmation_required"])
+        self.assertEqual(result["state"], "auth_target_required")
+        self.assertTrue(result["paused"])
+        self.assertTrue(self.other.paused())
+        self.assertEqual(self.other._read_state()["access_epoch"], epoch)
         process.assert_not_called()
         self.assertEqual(self.client.calls, [])
+
+    def test_late_auto_probe_cannot_clear_a_new_pause(self):
+        self.other.set_paused(True)
+        checked = self.other._read_state()
+        self.other.set_paused(True)
+        self.assertFalse(self.other.resume_after_auth_probe(checked["pause_id"], checked["access_epoch"]))
+        self.assertTrue(self.other.paused())
 
     def test_queued_operation_and_late_result_rejected_even_after_pause_resume(self):
         epoch = self.runtime.access.capture_epoch()

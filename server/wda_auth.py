@@ -25,7 +25,7 @@ class AuthWaiter:
         device_lock = state["pause_reason"] == "device_locked"
         if not device_lock and not (bundle_id and (ready_label or auth_label)):
             return {"paused": True, "state": "auth_target_required",
-                    "next_step": "Use wait_auth with the target bundle_id and an observed ready_label or auth_label from task context. No Mac dialog exists; do not ask the user to click one. Do not supply credentials."}
+                    "next_step": "Use wait_auth with the target bundle_id and an observed ready_label or auth_label from task context. No host confirmation exists; do not ask the user to confirm completion. Do not supply credentials."}
         deadline = time.monotonic() + timeout
         stable = 0
         last_state = "waiting_auth"
@@ -51,7 +51,7 @@ class AuthWaiter:
             # Leave room for two observations even at the minimum one-second budget.
             time.sleep(min(1, timeout / 4, max(0, deadline - time.monotonic())))
         return {"paused": True, "state": last_state, "retry_after_seconds": 1,
-                "next_step": "Continue wait_auth while the user authenticates on the phone. No Mac confirmation or chat reply is needed."}
+                "next_step": "Continue wait_auth while the user authenticates on the phone. No host confirmation or chat reply is needed."}
 
     def _probe(self, deadline, device_lock, bundle_id, ready_label, auth_label):
         runtime = self.runtime

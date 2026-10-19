@@ -57,7 +57,7 @@ class PreviewRecoveryTests(unittest.TestCase):
         self.assertEqual([p for _, p, _ in self.client.actions()], ["/session"])
         self.assertFalse(any(p == "/screenshot" for _, p, _ in self.client.calls))
 
-    def test_authentication_and_legacy_pause_require_explicit_resume(self):
+    def test_authentication_and_legacy_pause_require_page_evidence_for_resume(self):
         for legacy in (False, True):
             with self.subTest(legacy=legacy):
                 self.hub.set_paused(False)
@@ -79,8 +79,10 @@ class PreviewRecoveryTests(unittest.TestCase):
                 with patch("subprocess.run") as process:
                     result = self.runtime.call("pua_screen", {"action": "resume"})
                 process.assert_not_called()
-                self.assertFalse(result["paused"])
-                self.assertFalse(self.hub.paused())
+                self.assertFalse(result["confirmation_required"])
+                self.assertEqual(result["state"], "auth_target_required")
+                self.assertTrue(result["paused"])
+                self.assertTrue(self.hub.paused())
                 self.assertEqual(self.client.calls, before)
 
     def test_failed_health_check_does_not_clear_a_lock_pause(self):

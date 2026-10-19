@@ -117,6 +117,43 @@ class AuthWaitTests(unittest.TestCase):
         self.assertFalse(result["confirmation_required"])
         self.assertEqual(result["runtime_version"], VERSION)
 
+    def test_legacy_resume_alias_uses_the_same_phone_evidence_without_dialog(self):
+        with patch("subprocess.run") as dialog:
+            result = self.wait(action="resume")
+        dialog.assert_not_called()
+        self.assertTrue(result["resumed"])
+        self.assertFalse(result["paused"])
+        self.assertFalse(result["confirmation_required"])
+        self.assertEqual(result["runtime_version"], VERSION)
+        self.assertFalse(self.client.compact)
+        self.assertEqual(sum(path == "/status" for _, path, _ in self.client.calls), 2)
+
+    def test_resume_cannot_bypass_a_failed_automatic_check(self):
+        for attr, value in (("locked", True), ("app", "other.app"), ("blocker", True), ("page", False)):
+            with self.subTest(attr=attr):
+                old = getattr(self.client, attr)
+                setattr(self.client, attr, value)
+                result = self.wait(action="resume", bundle_id="com.example.phone", timeout=1)
+                self.assertEqual(result["state"], "waiting_auth")
+                self.assertTrue(result["paused"])
+                self.assertTrue(self.runtime.screen.paused())
+                self.assertFalse(self.client.compact)
+                setattr(self.client, attr, old)
+        result = self.runtime.call("pua_screen", {"action": "resume"})
+        self.assertEqual(result["state"], "auth_target_required")
+        self.assertFalse(result["confirmation_required"])
+        self.assertTrue(self.runtime.screen.paused())
+
+    def test_resume_when_not_paused_keeps_the_preview_status_shape_without_phone_requests(self):
+        self.runtime.screen.set_paused(False)
+        result = self.runtime.call("pua_screen", {"action": "resume"})
+        status = self.runtime.call("pua_screen", {})
+        self.assertEqual(result["state"], "not_paused")
+        self.assertFalse(result["paused"])
+        self.assertFalse(result["confirmation_required"])
+        self.assertTrue(set(status) <= set(result), set(status) - set(result))
+        self.assertEqual(self.client.calls, [])
+
     def test_locked_wrong_app_blocker_missing_marker_and_empty_tree_keep_pause(self):
         for attr, value in (("locked", True), ("app", "other.app"), ("blocker", True), ("page", False), ("empty", True)):
             with self.subTest(attr=attr):

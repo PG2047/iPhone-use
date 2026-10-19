@@ -97,7 +97,7 @@ SCHEMAS={
 BATCH_OPS=["tap","swipe","type_text","launch_app","press_button","wait","observe","scroll_find"]
 SCHEMAS["batch"]=obj({"steps":{"type":"array","minItems":1,"maxItems":20,"items":{"oneOf":[obj({"op":{"type":"string","const":op},"args":SCHEMAS[op]},("op","args")) for op in BATCH_OPS]}}},("steps",))
 SCHEMAS["ready"]["examples"]=[{"recover":True,"screenshot":False}]
-SCHEMAS["screen"]=obj({"action":string("Open/pause; wait_auth checks phone evidence. resume follows user completion.",enum=["open","pause","wait_auth","resume"]),
+SCHEMAS["screen"]=obj({"action":string("Open/pause; wait_auth checks phone evidence; resume is its alias.",enum=["open","pause","wait_auth","resume"]),
  "bundle_id":string("Target App; no app switching."),
  "ready_label":string("Known post-auth label."),
  "auth_label":string("Auth heading that must disappear."),
@@ -351,9 +351,11 @@ class Runtime:
         if name=="pua_screen":
             action=args.get("action","open")
             if action=="pause":self.screen.set_paused(True)
-            elif action=="resume":self.screen.set_paused(False)
-            elif action=="wait_auth":
+            elif action in ("wait_auth","resume"):
+                # resume is an alias: an MCP argument cannot clear a pause by itself.
                 result=AuthWaiter(self).wait(**{k:v for k,v in args.items() if k!="action"})
+                # Legacy resume callers on an unpaused preview still get its status.
+                if action=="resume" and result["state"]=="not_paused":result={**self.screen.start(),**result}
                 return {**result,"confirmation_required":False,"runtime_version":VERSION}
             return self.screen.start()
         lock_path=self.state_dir/"operation.lock"
@@ -714,7 +716,7 @@ INSTRUCTIONS=(
  "Execute routine actions optimistically: observe=none and verify=false are defaults, verified=false/verification_deferred=true is normal and does not require a separate verification call. If the next decision needs the resulting page, request observe=tree/both in the action and inspect previous success while planning that next step. "
  "Chain known steps in batch; do not batch speculative repeated swipes toward an unknown target. Inspect the next page first, using a screenshot when tree truncation hides the boundary. explicit expect/verify opts into checking key outcomes. Send long text whole: when type_text returns input_complete=false, call it again with only continue_token; a batch stopped by input_continues or time_budget continues from stopped_at. "
  "Verify final critical results before reporting completion. Retry or replan only after observing a definite failure; never replay uncertain input/submission or an already executed multi-step operation wholesale. No_scroll_progress from explicit verification does not prove empty/complete data. "
- "For App passwords or Face ID call pua_screen(action=pause), tell the user to finish on the phone, then keep calling pua_screen(action=wait_auth, bundle_id=target, ready_label=known_post_auth_label or auth_label=observed_auth_heading, timeout=25). Do not request a chat completion reply or a Mac confirmation. phone_locked already pauses as device_locked; wait_auth needs no label for that case. Waiting probes return only status, never field values, trees or screenshots. A waiting result is not completion: keep the current task active and repeat bounded waits. A cleared UI is not proof of login or business success: obtain fresh state and continue only the remaining authorized work. Never replay uncertain submissions. For unsupported/custom authentication do not guess a marker; report the detection limit. Use wait_auth for automatic continuation. Legacy resume remains available after explicit user completion; never call it to bypass a failed automatic check. "
+ "For App passwords or Face ID call pua_screen(action=pause), tell the user to finish on the phone, then keep calling pua_screen(action=wait_auth, bundle_id=target, ready_label=known_post_auth_label or auth_label=observed_auth_heading, timeout=25). Do not request a chat completion reply or any host confirmation. phone_locked already pauses as device_locked; wait_auth needs no label for that case. Waiting probes return only status, never field values, trees or screenshots. A waiting result is not completion: keep the current task active and repeat bounded waits. A cleared UI is not proof of login or business success: obtain fresh state and continue only the remaining authorized work. Never replay uncertain submissions. For unsupported/custom authentication do not guess a marker; report the detection limit. resume is an alias of wait_auth with the same phone-evidence checks; no call clears a pause without that evidence. "
  "Operation action_complete/verified fields do not mean the user's entire task is complete. Track all deliverables, give commentary progress and continue tools while work remains; final only after completion or a concrete blocker. For an unavailable MCP binding use the skill's direct Runtime fallback with the same operation lock."
 )
 
