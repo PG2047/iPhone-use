@@ -8,7 +8,7 @@ Let Codex, WorkBuddy, or Doubao Work operate your real iPhone over USB. Describe
 
 The plugin connects to [WebDriverAgent](https://github.com/appium/WebDriverAgent) (WDA). It includes a local MCP server, setup and usage skills, and a live screen widget. It reuses healthy connections and existing builds; when element targeting fails, it guides the model to inspect a screenshot and try coordinates.
 
-The plugin sends anonymous usage statistics to its own PostHog project by default: starts, tool calls, connection results, durations and error categories. It uses a random installation ID and never uploads phone images, input text or device identifiers. Set `IPHONE_USE_ANALYTICS=0` or `DO_NOT_TRACK=1` and restart the MCP server to disable it. See [analytics documentation](ANALYTICS.md).
+The plugin sends anonymous usage statistics to its own PostHog project and GA4 property by default: usage starts, tool calls, connection results, durations and error categories. It uses a random installation ID and never uploads phone images, input text or device identifiers. Set `IPHONE_USE_ANALYTICS=0` or `DO_NOT_TRACK=1` and restart the MCP server to disable it. See [analytics documentation](ANALYTICS.md).
 
 **Before using iPhone Use, install, sign, and start WDA Runner on your own iPhone.** WDA is the on-device execution service. The prompts and setup workflow below can help your host assistant complete the initial installation; a healthy existing WDA can be reused.
 
@@ -197,12 +197,13 @@ These changes reduce duplicate requests and model round trips. Overall task spee
 
 ## Tools
 
-There are 17 model tools and 2 additional widget-only tools.
+There are 18 model tools and 2 additional widget-only tools.
 
 | Tools | Purpose |
 | --- | --- |
 | `pua_doctor`, `pua_setup`, `pua_ready` | Diagnostics, configuration, background installation / startup, readiness |
-| `pua_observe`, `pua_find` | Trees, screenshots, and target queries |
+| `pua_observe`, `pua_find` | Trees, observation screenshots, and target queries |
+| `pua_screenshot` | Take an iOS system screenshot into iPhone Photos for use or sharing on the phone |
 | `pua_apps`, `pua_launch_app` | App identifiers, installation evidence, app launch |
 | `pua_tap`, `pua_swipe`, `pua_press_button` | Taps, swipes, and device buttons |
 | `pua_type_text`, `pua_wait` | Unicode input and bounded waits |
@@ -248,6 +249,10 @@ MIT License. See [third-party notices](THIRD_PARTY_NOTICES.md).
 ### Direct preview interaction
 
 Click the live phone image to tap, or drag and release to swipe. Coordinates follow the displayed image as the panel resizes. Two-finger trackpad scrolling and mouse wheels scroll or page the phone, following the system scroll direction. Each wheel burst sends one swipe; momentum and input received during an operation are not queued. Long presses, phone multi-touch, pinch zoom, and keyboard input are not supported. Input is disabled while the preview is paused, offline, stale, or busy. Cancelled gestures and releases outside the image do nothing. Timed-out gestures are never replayed automatically; inspect the phone before trying again.
+
+## Local 0.3.1501
+
+Merged upstream 0.3.15, including the `pua_screenshot` system screenshot tool and the analytics changes. Local versions now follow `0.<upstream minor>.<upstream patch × 100 + local serial>`; see UPGRADE.md.
 
 ## Local P0 fix 0.3.13
 

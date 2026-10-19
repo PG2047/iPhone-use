@@ -54,7 +54,7 @@ SKILLS = {
         "以用户实际提交的选项或明确回复为准；提问被跳过、超时、没有答复，或工具在用户作答前就返回，都不能当作完成。",
     ], "skills/iphone-use/references/authentication.md"),
     "skills/iphone-use/references/tool-fallback.md": retell(base.SKILLS["skills/iphone-use/references/tool-fallback.md"], [
-        "普通版提供 17 个模型工具，豆包工作中名为 `mcp__iphone_use__pua_*`；先查看本回合实际可调用的工具绑定，不能只从 tools/list、文档或先前聊天推断已经绑定。豆包工作版由 `doubao/install.py` 安装到本机，再在「插件 · 技能 · 伙伴」里新建 STDIO 自定义连接器 `iphone_use` 接入；安装或更新后需要把该连接器关闭再打开，并新开任务；",
+        "普通版提供 18 个模型工具，豆包工作中名为 `mcp__iphone_use__pua_*`；先查看本回合实际可调用的工具绑定，不能只从 tools/list、文档或先前聊天推断已经绑定。豆包工作版由 `doubao/install.py` 安装到本机，再在「插件 · 技能 · 伙伴」里新建 STDIO 自定义连接器 `iphone_use` 接入；安装或更新后需要把该连接器关闭再打开，并新开任务；",
         "截图作为图片块随结果返回；结果里没有看到图片时，用读取文件的工具打开 `image.path` / `error.observation.image.path`，不要把 base64 文本当成截图。",
         "豆包工作版的 `<PLUGIN_ROOT>` 是安装目录，默认 `~/.local/share/iphone-use-doubao`；以自定义连接器 `iphone_use` 的参数里 `doubao/mcp_stdio.py` 所在的实际路径为准。",
     ], "skills/iphone-use/references/tool-fallback.md"),

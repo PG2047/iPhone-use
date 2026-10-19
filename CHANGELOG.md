@@ -1,3 +1,9 @@
+## 本地 0.3.1501
+
+- 合并上游 0.3.13 到 0.3.15：埋点去重、GA4 直连上报、`pua_screenshot` 系统截屏工具。本地版本号从此按 `0.<上游 minor>.<上游 patch × 100 + 本地序号>` 编号，见 UPGRADE.md。
+- 保留回环监听、暂停门控与 `wait_auth` 自动恢复；`pua_screenshot` 同样受暂停门控约束，暂停时返回 `access_paused`。
+- `pua_screen` 的工具描述改用 #46 的短版本，使工具目录保持在模型上下文预算内。
+
 ## 0.3.17
 
 - Fix automatic authentication recovery timing out on long Settings pages: match type and label before evaluating native visibility, and return only the first compact element ID for existence checks.
@@ -29,6 +35,23 @@
 - Clear paused preview pixels and reject old preview epochs.
 
 # 更新记录
+
+## 0.3.15 — 2026-10-16
+
+- 新增无参数 `pua_screenshot` 工具，通过 WDA HID 事件触发 iOS 系统截屏，截图直接存入 iPhone 相册；复用操作锁、锁屏检查和不确定动作不重放规则。
+- skill 简洁补充：需要在手机里发送、上传或使用截图时，调用截图工具后到 iPhone「照片」App 或目标 App 相册选择器中找到并使用，避免转到 Mac 截图或网页传图。
+
+## 0.3.14 — 2026-10-16
+
+- 新增独立 GA4 Measurement Protocol 直连上报，与 PostHog 复用相同匿名事件和隐私字段白名单；按项目维护者要求内置专用上报配置。
+- 两个服务独立队列发送；GA4 不重试不确定请求，避免重复计数，保留初始化、预览轮询和 viewport 自动恢复不埋点的规则。统一关闭开关同时控制两者，也支持单独关闭与本地覆盖。
+- 在独立 iPhone Use GA4 属性发布使用概览、稳定性与接入两份看板，共 16 张图；注册工具、结果、错误、READY/setup 状态、版本等维度及耗时指标，正式看板排除测试数据。
+
+## 0.3.13 — 2026-10-15
+
+- 修复匿名埋点量放大：MCP initialize / ping / 工具与资源发现不再上报启动，仅首次实际工具调用结束时记录使用启动。
+- READY、setup 和预览结果字段合并到单条工具事件，停止发送重复的专用结果事件；新增 analytics_schema_version=2，仪表盘兼容新旧客户端且不重复计数。
+- 排除 viewport 自动恢复查询及其失败埋点，保留用户预览点击、拖动与工具栏操作；实际使用进程图按工具事件中的 session_id 去重，历史空启动不再计入该图。
 
 ## 0.3.12 — 2026-10-13
 

@@ -380,7 +380,7 @@ class InstallTests(unittest.TestCase):
     def test_install_registers_a_server_that_starts_under_a_gui_path(self):
         result = self.install()
         manifest = json.loads((ROOT / "plugin.json").read_text())
-        self.assertEqual((result["version"], result["tools"]), (manifest["version"], 19))
+        self.assertEqual((result["version"], result["tools"]), (manifest["version"], 20))
         servers = json.loads(self.config.read_text())["mcpServers"]
         self.assertEqual(servers["other"], self.OTHER)
         entry = servers["iphone_use"]
@@ -389,7 +389,7 @@ class InstallTests(unittest.TestCase):
         self.assertTrue(set(installer.SYSTEM_PATH) <= set(entry["env"]["PATH"].split(os.pathsep)))
         self.assertEqual(entry["env"]["NO_PROXY"], "127.0.0.1,localhost,::1")
         # The registered command itself, with nothing inherited from this shell.
-        self.assertEqual(installer.handshake(entry), (manifest["version"], 19))
+        self.assertEqual(installer.handshake(entry), (manifest["version"], 20))
 
     def test_installed_server_answers_a_frame_read(self):
         entry = self.install()["entry"]

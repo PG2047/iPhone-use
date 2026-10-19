@@ -207,7 +207,7 @@ class InstallTests(unittest.TestCase):
     def test_install_prepares_a_server_that_starts_under_a_bare_path(self):
         result = installer.install(self.install_dir, sys.executable)
         manifest = json.loads((ROOT / "plugin.json").read_text())
-        self.assertEqual((result["version"], result["tools"]), (manifest["version"], 19))
+        self.assertEqual((result["version"], result["tools"]), (manifest["version"], 20))
         entry = self.install_dir / "doubao/mcp_stdio.py"
         self.assertEqual(result["connector"], {"服务器名称": "iphone_use", "传输类型": "STDIO", "命令": sys.executable, "参数": [str(entry)]})
         found = json.loads((self.install_dir / "doubao/host.json").read_text())
@@ -215,7 +215,7 @@ class InstallTests(unittest.TestCase):
         self.assertEqual(found["env"], {"NO_PROXY": "127.0.0.1,localhost,::1", "no_proxy": "127.0.0.1,localhost,::1", "IPHONE_USE_ANALYTICS": "0"})
         # The connector's command itself, with only system directories on PATH.
         bare = {"command": sys.executable, "args": [str(entry)], "env": {"PATH": os.pathsep.join(installer.shared.SYSTEM_PATH)}}
-        self.assertEqual(installer.shared.handshake(bare), (manifest["version"], 19))
+        self.assertEqual(installer.shared.handshake(bare), (manifest["version"], 20))
 
     def test_analytics_stays_on_only_when_asked(self):
         self.assertNotIn("IPHONE_USE_ANALYTICS", installer.host_file(analytics=True)["env"])
