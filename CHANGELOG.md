@@ -1,3 +1,21 @@
+## 0.3.17
+
+- Fix automatic authentication recovery timing out on long Settings pages: match type and label before evaluating native visibility, and return only the first compact element ID for existence checks.
+- Preserve authentication blockers, two consecutive probes, pause epoch matching, and normal settings restoration. No Mac confirmation is added.
+
+# Local 0.3.16 remove the Mac confirmation path
+
+- Fix legacy `resume` callers still launching the native Mac confirmation in 0.3.15. Remove the dialog implementation; `resume` now runs the same phone-evidence checks as `wait_auth`.
+- Remove stale Mac-confirmation guidance from SMS sign-in, CLI, skills and acceptance scripts.
+- Return `confirmation_required=false` and the runtime version on automatic recovery results. Missing target evidence keeps access paused and never requests a Mac click.
+
+# Local 0.3.15 automatic authentication handoff
+
+- Add bounded `pua_screen(action="wait_auth")` with lock and App/page checks; no host reply or Mac click is required.
+- Keep preview, ordinary reads and actions paused. Use compact element IDs, never field values or pixels, for page checks.
+- Resume only the same pause after two checks. Keep stale-response suppression and loopback enforcement.
+- Update skills to keep waiting and continue from fresh state. Preserve manual resume as an explicit fallback.
+
 # Local 0.3.14 authorized SMS sign-in
 
 - Add an opt-in skill workflow for user-specified phone numbers and matching SMS sign-in codes.

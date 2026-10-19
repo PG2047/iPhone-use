@@ -50,7 +50,8 @@ class HostTextTests(unittest.TestCase):
         upstream = pristine_server()
         tools = copy.deepcopy(upstream.TOOLS)
         mcp_server.adapt(upstream)
-        self.assertIn("AskUserQuestion", upstream.INSTRUCTIONS)
+        self.assertIn("action=wait_auth", upstream.INSTRUCTIONS)
+        self.assertIn("Do not request a chat completion reply", upstream.INSTRUCTIONS)
         described = upstream.INSTRUCTIONS + "".join(tool["description"] for tool in upstream.TOOLS)
         for word in CODEX_TOOLS + ("Codex",):
             self.assertNotIn(word, described)

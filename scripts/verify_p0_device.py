@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Interactive acceptance on the configured iPhone; never records phone content."""
+import argparse
 import datetime
 import json
 from pathlib import Path
@@ -13,6 +14,10 @@ from wda_client import WDAError
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--bundle-id', required=True)
+    parser.add_argument('--ready-label', required=True, help='Known noneditable label on the authenticated page')
+    args = parser.parse_args()
     runtime = Runtime()
     evidence = {'version': VERSION, 'verified_at': datetime.datetime.now(datetime.timezone.utc).isoformat()}
     output = Path(__file__).resolve().parents[1] / 'docs/p0-device-acceptance.json'
@@ -59,16 +64,20 @@ def main():
             else:raise RuntimeError('Pause did not reject ' + name)
         assert len(runtime.client.records) == count
         record('pause_gate', {'blocked': blocked, 'new_phone_requests': 0})
-        print('FIRST DIALOG: choose 保持暂停 to test cancellation.', flush=True)
-        runtime.call('pua_screen', {'action': 'resume'})
-        runtime.access.confirmation.join(126)
-        assert runtime.screen.paused(), 'Cancellation must preserve pause'
-        record('native_cancel_keeps_pause', True)
-        print('SECOND DIALOG: choose 恢复手机访问 to finish acceptance.', flush=True)
-        runtime.call('pua_screen', {'action': 'resume'})
-        runtime.access.confirmation.join(126)
-        assert not runtime.screen.paused(), 'Native user confirmation is still required'
-        record('native_confirmation_resumes', True)
+        result = runtime.call('pua_screen', {'action': 'resume'})
+        assert result['paused'] and not result['confirmation_required']
+        record('legacy_resume_has_no_mac_confirmation', True)
+        print('Complete authentication on the iPhone. No Mac confirmation is needed.', flush=True)
+        deadline = time.monotonic() + 120
+        while time.monotonic() < deadline:
+            result = runtime.call('pua_screen', {'action': 'wait_auth', 'bundle_id': args.bundle_id,
+                                                'ready_label': args.ready_label, 'timeout': 25})
+            assert not result['confirmation_required']
+            if not result['paused']: break
+            if result['state'] not in ('waiting_auth',):
+                raise RuntimeError('Authentication probe did not complete: ' + result['state'])
+        assert not runtime.screen.paused(), 'Phone authentication has not been verified'
+        record('phone_evidence_resumes', True)
         result = runtime.call('pua_ready', {'screenshot': False})
         assert result['ready']
         record('ready_after', {'ready': True, 'proof': result['proof'], 'preview': result['preview']})

@@ -25,7 +25,7 @@ start 默认最多等待 20 秒，服务就绪或工作结束时提前返回，�
 1. 调用 `pua_setup(action="status")` 查看 `configured`、`service` 和 `jobs`。
 2. 已有与当前配置 / endpoint 对应的 start / recover 工作为 queued 或 running 时，记录其 `id`，用 `pua_setup(action="status", job_id=..., wait_seconds=20)` 查询同一工作；从返回的 `jobs` 数组匹配 id，不复用旧的无关工作。恢复到 `recovery_phase="serving"` 或启动服务达到 `service.ready=true` 后重新调用 READY，长期 Runner 可以保持 running，不等 succeeded，也不再 start。若对应 fetch / build 工作正在运行，先复用并查询该工作，再继续缺失步骤。
 3. `configured=true`、确认服务未运行且没有可复用的活动工作时，调用一次 `pua_setup(action="start")`，复用现有签名构建。探测超时或单独的 `service.ready=false` 不足以证明服务未运行，先按返回诊断和日志确认。根据实际返回记录新工作的 `job_id`，或 `already_running=true` 时的 `job.id`，再查询同一工作。只在返回明确提示源代码 / 构建缺失或失效时按 `iphone-use-setup` 补 fetch / build；不因服务未启动先重建、重新签名或重装。若 `service.ready=true`，直接重验 READY，无需 start。
-4. `configured=false` 时读取 `iphone-use-setup`，按实际缺项完成 doctor / discover、fetch、configure、build / start。真实 USB、Xcode、信任、开发者模式或签名阻塞才转入对应处理；用户本人需解锁、登录或确认时用 [认证接管](authentication.md) 的提问流程。
+4. `configured=false` 时读取 `iphone-use-setup`，按实际缺项完成 doctor / discover、fetch、configure、build / start。真实 USB、Xcode、信任、开发者模式或签名阻塞才转入对应处理；用户本人需解锁、登录或确认时用 [认证接管](authentication.md) 的自动等待流程；无法检测的配置确认才使用宿主提问。
 5. READY 返回 `ready=true` 后复用它的 observation 继续原任务。缺项需用户完成或存在真实启动失败时才报告准确阻塞。
 
 服务还未启动时 widget 可能暂时空白，打开或留空既不证明 READY，也不是整项任务失败。
@@ -41,4 +41,4 @@ start 默认最多等待 20 秒，服务就绪或工作结束时提前返回，�
 
 widget 通过独立 USB MJPEG 通道显示最新手机画面，界面最多每秒读取 4 次服务端缓存，不轮询截图或 XML，也不占手机操作锁；长时间的手机操作期间预览照常刷新。首次操作后边缘渐变持续显示，认证暂停、断开 / 换流、关闭 / 重新加载后清除；圆形 cursor 标记实际点击位置或拖动路径，二者都不证明动作成功。widget 隐藏 / 关闭后停止轮询，预览租约 5 秒到期；认证暂停会停止采集，widget 清除旧画面并显示接管提示，恢复必须等用户明确确认。更新插件后，已有聊天可能仍运行旧 MCP 进程和旧页面；重连聊天并重新打开 widget 加载新版，不能靠重复 READY 刷新缓存。`paused=true` 时显示「请在手机上接管操作」，只有用户确认完成后才 resume。
 
-用户明确从亲自认证改为授权辅助短信登录时，按 [短信登录](sms-login.md) 的“已暂停时”请求恢复访问；不要求用户先完成短信登录，也不能把该授权当成认证已经完成。需要本机确认的版本仍须本人确认，且 `paused=false` 后才能取新观察。
+用户明确从亲自认证改为授权辅助短信登录时，按 [短信登录](sms-login.md) 的“已暂停时”请求恢复访问；不要求用户先完成短信登录，也不能把该授权当成认证已经完成。当前版本没有 Mac 确认窗口；用 `wait_auth` 或其兼容别名 `resume` 检测手机端状态，且 `paused=false` 后才能取新观察。

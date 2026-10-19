@@ -21,9 +21,6 @@ def main():
         arguments = json.loads(args.arguments, parse_constant=lambda value: (_ for _ in ()).throw(ValueError("Non-finite JSON number")))
         runtime = Runtime(args.state_dir, args.url)
         result = runtime.call(args.tool, arguments)
-        if args.tool == "pua_screen" and arguments.get("action") == "resume" and runtime.access.confirmation:
-            runtime.access.confirmation.join(timeout=126)
-            result = runtime.screen.start()
     except PUAError as exc:
         result = {"error": exc.as_dict()}
     except (ValueError, TypeError) as exc:

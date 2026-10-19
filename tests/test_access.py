@@ -59,37 +59,22 @@ class AccessTests(unittest.TestCase):
         frame = self.runtime.call("pua_screen_frame", {})
         self.assertIsNone(frame["frame"])
 
-    def test_resume_requires_native_consent_cancel_errors_and_timeout_fail_closed(self):
-        for answer in (False, True):
-            self.other.set_paused(True)
-            with patch.object(AccessGate, "_confirm_on_mac", return_value=answer) as confirm:
-                result = self.runtime.call("pua_screen", {"action": "resume"})
-                self.runtime.access.confirmation.join(2)
-                self.assertTrue(result["confirmation_required"])
-                self.assertEqual(self.other.paused(), not answer)
-                confirm.assert_called_once()
-        for result in (Mock(returncode=1, stdout="恢复手机访问\n"),
-                       Mock(returncode=0, stdout="保持暂停\n"), Mock(returncode=0, stdout="")):
-            with patch("wda_access.subprocess.run", return_value=result):
-                self.assertFalse(AccessGate._confirm_on_mac())
-        with patch("wda_access.subprocess.run", side_effect=OSError):
-            self.assertFalse(AccessGate._confirm_on_mac())
-
-    def test_late_user_confirmation_cannot_clear_a_new_pause_and_requests_are_deduplicated(self):
-        entered, release = threading.Event(), threading.Event()
+    def test_resume_without_target_keeps_pause_and_never_requests_confirmation(self):
+        self.runtime.identify_device = Mock()
         self.other.set_paused(True)
-        def confirm():
-            entered.set()
-            release.wait(2)
-            return True
-        with patch.object(AccessGate, "_confirm_on_mac", side_effect=confirm) as prompt:
-            self.runtime.call("pua_screen", {"action": "resume"})
-            self.assertTrue(entered.wait(2))
-            self.runtime.call("pua_screen", {"action": "resume"})
-            self.other.set_paused(True)
-            release.set()
-            self.runtime.access.confirmation.join(2)
-            prompt.assert_called_once()
+        with patch("subprocess.run") as process:
+            result = self.runtime.call("pua_screen", {"action": "resume"})
+        self.assertFalse(result["confirmation_required"])
+        self.assertTrue(self.other.paused())
+        self.assertEqual(result["state"], "auth_target_required")
+        process.assert_not_called()
+        self.assertEqual(self.client.calls, [])
+
+    def test_late_auto_probe_cannot_clear_a_new_pause(self):
+        self.other.set_paused(True)
+        checked = self.other._read_state()
+        self.other.set_paused(True)
+        self.assertFalse(self.other.resume_after_auth_probe(checked["pause_id"], checked["access_epoch"]))
         self.assertTrue(self.other.paused())
 
     def test_queued_operation_and_late_result_rejected_even_after_pause_resume(self):

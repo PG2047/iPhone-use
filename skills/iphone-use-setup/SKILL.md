@@ -13,7 +13,7 @@ description: 配置 PUA（Phone Use Agent），在用户自己的 iPhone 上安�
 
 正常任务调用 `pua_ready(recover=true)` 或省略 recover 使用默认 true，不因预检或谨慎主动关闭恢复。只读诊断或用户明确禁止重启时传 `recover=false`，保留限制。常规任务无需截图时可传 `screenshot=false`；截图能力待实际需要截图时再使用。返回 `ready=true, state="ready"` 的 proof 包含 PUA status、可用会话、真实前台 App、设备视口、解锁状态与当前观察；直接用嵌套 observation 准备下一步，不立即重复 observe 或再做一轮导航测试。若镜像占用且控件树为空，工具返回 `mirroring_conflict`，退出镜像后重验 READY。Runner 图标、BUILD SUCCEEDED 或端口开放不足以声明 READY。READY 同时关联手机屏幕侧边栏，宿主支持时默认打开；已有通道要重新打开画面用 `pua_screen()`，不要重复 READY。预览走独立 USB MJPEG 通道（默认设备端口 9100），不使用 XML 或截图轮询；预览不可用本身不否定控制通道 READY，也不要求循环重启。READY 证明控制通道可用；常规 App 操作默认乐观执行，下一步所需观察顺带判断进度，最终关键结果才显式验收。
 
-`phone_locked` 会自动暂停预览并记录 `device_locked`，无需再显式 pause。等待用户实际解锁通知后重验 READY；成功时仅解除同一次锁屏暂停，App 认证与旧版未知暂停保持显式恢复。READY 的 `preview` 返回暂停原因；不要把预览空白当成控制通道失效。
+`phone_locked` 会自动暂停预览并记录 `device_locked`，无需再显式 pause。提示用户在手机上解锁，并持续调用 `pua_screen(action="wait_auth", timeout=25)`；检测解锁后重验 READY，无需用户在 Mac 通知。App 认证按认证参考设置页面标记自动等待。READY 的 `preview` 返回暂停原因；不要把预览空白当成控制通道失效。
 
 ## 服务未启动时继续初始化
 
@@ -27,7 +27,7 @@ description: 配置 PUA（Phone Use Agent），在用户自己的 iPhone 上安�
 2. 检查返回 `jobs` 数组。已有与当前配置 / endpoint 对应的 start / recover 工作为 queued 或 running 时按其 `id` 查询同一工作，不重复 start，也不等待旧的无关工作；有对应 fetch / build 工作正在运行时也先复用它。`pua_setup(action="status", job_id=...)` 仍返回 `jobs` 数组，不能假定返回单个 job。
 3. `service.ready=true` 表示服务可探测，仍需重新 READY 验证 session / 前台 / 视口等完整通道。start 工作仍 running 且服务可用即可验 READY；recover 工作到 `recovery_phase="serving"` 后验 READY，长期 Runner 不等 succeeded。
 4. 已配置、确认服务未运行且没有对应活动工作时，调用一次 `pua_setup(action="start")` 复用有效构建。探测超时或单独的 `service.ready=false` 不证明服务已停止，先按诊断和日志确认。start 默认有界等待最多 20 秒，服务就绪或工作结束时提前返回；不是固定 sleep。返回 `service.ready=true` 时直接 READY，无需再查 status。尚未就绪时用 `pua_setup(action="status", job_id=..., wait_seconds=20)` 等待同一工作，超时只表示仍在启动，不能再次 start。新工作记录返回的 `job_id`；`already_running=true` 时记录 `job.id`，需要等待时用 `pua_setup(action="status", job_id=..., wait_seconds=20)` 查询同一工作。start 明确报告源代码缺失时 fetch，明确报告有效构建缺失、签名过期或二进制不兼容时 build，然后继续 start；不因冷启动先完整重装或重新签名。工作失败时查看该工作准确日志和 next_steps，再处理真实缺项，不能循环 start。
-5. 取得 `ready=true` 后复用当前 observation，继续原任务。只有真实 USB / Xcode / 签名 / 权限阻塞才需要对应处理；必须用户本人解锁、信任、登录或确认时，用首个选项「已完成继续」的宿主提问流程。用户明确要求只读、禁止启动 / 重启时保留限制，不通过初始化绕过。
+5. 取得 `ready=true` 后复用当前 observation，继续原任务。只有真实 USB / Xcode / 签名 / 权限阻塞才需要对应处理；已有手机通道的解锁和 App 认证用 `wait_auth` 自动等待；无法探测的信任、安装和签名配置才用宿主提问流程。用户明确要求只读、禁止启动 / 重启时保留限制，不通过初始化绕过。
 
 本聊天已有 widget 时，重跑 setup、启动 / 恢复通道和再次 READY 均复用已有面板，不再额外调用 `pua_screen()` 打开新标签。用户只要求“先打开 widget 让我看”且面板尚未打开时，调用 `pua_screen()` 打开预览后继续初始化与已授权任务，不添加等待批准的关卡；用户明确要求先等确认则照做。未启动时预览暂时空白不证明 READY，也不表示整个任务已失败。
 
@@ -40,13 +40,13 @@ description: 配置 PUA（Phone Use Agent），在用户自己的 iPhone 上安�
 5. 用 `build` 构建，然后 `start` 安装并启动 Runner 测试服务及本机 USB 转发。fetch/build/start 是后台工作；记录 job_id，用 `pua_setup(action="status", job_id=...)` 查询已有工作，从返回 `jobs` 数组按 id 找到它，不假定 status 返回单个 job。fetch / build 看终态，失败时读准确日志；start 是长期 Runner，工作仍 running 且 `service.ready=true` 时即可调用 READY，不等 succeeded、不重复 start。按状态、日志及返回的 retry_after_seconds 查询，不固定长间隔或固定次数盲等。start 使用当前配置的成功构建产物，默认保留数据线并保持设备可供 UI 测试使用。
 6. 若手机或 Xcode 报开发者不受信任，按当前设备的“设置 → 通用 → VPN 与设备管理”及其开发者条目完成验证；以当前提示为准，不把企业 App 的流程套用于所有开发签名。再执行 `status` 和 `pua_ready`。
 
-账号登录、密码、设备解锁、手机确认或 Xcode 安装确实需要用户完成时，说明准确页面、阻塞原因和完成后继续的步骤，并必须调用可用的宿主提问工具（Default 优先 `functions.request_user_input_async`），首个选项固定「已完成继续」，第二个可为「暂时无法完成」。异步返回、预选或经过一段时间不代表用户完成；收到用户实际选择「已完成继续」或明确完成回复才继续依赖该步骤的配置。只有宿主没有提问能力时才用文字等待说明。其余独立配置可以继续执行。不要为已授权的本机安装再加入统一确认关卡。不要删除用户已有开发 App、吊销共享证书或付费升级账户来绕过错误。
+只有尚无可用手机通道、不能自动检测的账号登录、信任确认或 Xcode 安装确实需要用户完成时，说明准确页面、阻塞原因和完成后继续的步骤，并必须调用可用的宿主提问工具（Default 优先 `functions.request_user_input_async`），首个选项固定「已完成继续」，第二个可为「暂时无法完成」。异步返回、预选或经过一段时间不代表用户完成；收到用户实际选择「已完成继续」或明确完成回复才继续依赖该步骤的配置。只有宿主没有提问能力时才用文字等待说明。其余独立配置可以继续执行。不要为已授权的本机安装再加入统一确认关卡。不要删除用户已有开发 App、吊销共享证书或付费升级账户来绕过错误。
 
 ## READY 验收与恢复
 
 READY 已返回设备、会话、视口和当前 observation，复用这些信息准备下一步。不要紧接着重复读树或为每项任务增加导航预检；只有具体诊断确实需要时才在无副作用页面测试。常规导航默认 observe=none、verify=false；下一步需要未知页面信息时，在本次动作返回 tree / screenshot / both，不另加验证回合。最终关键操作显式 expect / verify 或一次终态读取。
 
-通道 READY 后，目标 App 仍可能要求认证。用户明确授权的普通短信登录按 [短信登录](../iphone-use/references/sms-login.md) 继续，已有暂停仍须按原流程恢复。需要用户亲自完成的密码、未授权验证码或 Face ID，按 [认证接管与恢复](../iphone-use/references/authentication.md)，先调用 `pua_screen(action="pause")` 停止预览采集；widget 清除旧画面并显示接管提示，再按该参考调用提问工具提示用户在 iPhone 上完成，首个选项「已完成继续」；接管期间暂停手机调用。收到用户实际选择「已完成继续」或明确完成通知后调用 `pua_screen(action="resume")` 请求 Mac 本机确认；用户亲自点击「恢复手机访问」且 `paused=false` 后，重新观察 App 和目标页。App 认证不是 PUA 故障，不为此重复 build / start / recover；手机真正锁屏或通道中断时才恢复 READY。
+通道 READY 后，目标 App 仍可能要求认证。明确授权的短信登录按 [短信登录](../iphone-use/references/sms-login.md) 处理。需要用户亲自完成的密码或 Face ID，按 [认证接管与恢复](../iphone-use/references/authentication.md) 暂停预览，然后持续调用 `wait_auth` 检测手机端完成。无需聊天完成回复或 Mac 恢复确认。认证完成后用新观察继续原任务；不为 App 认证重复 build / start / recover。上述宿主提问规则仅适用于无法探测的安装、签名、信任等配置阻塞，不适用于已有通道的手机认证。
 
 连接失败、重启、停止测试进程或 USB 转发退出后，按上面的检查流程查询 status 并复用已有工作 / 构建；只有具体缺项需要时才调用 doctor，按缺失层恢复连接或 start，最后重新 READY。请求超时仍先走延迟重试 / 观察分支，不等同于断线；其他传输异常按诊断处理。用户接管手机后重新观察当前 App，不继续使用接管前的坐标或猜测原页面。
 
