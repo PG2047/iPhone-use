@@ -30,6 +30,8 @@ start 默认最多等待 20 秒，服务就绪或工作结束时提前返回，�
 
 服务还未启动时 widget 可能暂时空白，打开或留空既不证明 READY，也不是整项任务失败。
 
+`start` / `stop` 和 READY 都会先取得这台手机的控制权。返回 `device_queued` 表示另一个对话正在用手机（`holder.label`、`holder.idle_seconds`），服务本身可能是健康的：不要据此 stop 或重复 start，告诉用户谁在用，在 `keep_place_seconds` 内再调用一次即保留排队位置；`fresh_observation_required` 表示换手后要先 READY / observe 再动作。
+
 ## 认证暂停期间服务停止
 
 认证暂停允许 `setup(status/stop/start)`。`start` 只复用现有配置和已验证构建，不清除暂停，也不开放普通读取或动作。先用 status 确认服务停止且没有活动工作，再 start 一次并等待同一 job。服务就绪后先 `pua_screen(action="wait_auth", timeout=25)`，复用保存的认证条件；只有 `paused=false` 后才 READY。检测需要的会话若缺失或失效，探测器可建立不指定 App、不终止 App、不接受弹窗的会话；仍只检查状态与控件存在性。configure、fetch、build 在暂停期间仍不开放。
