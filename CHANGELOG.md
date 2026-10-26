@@ -1,3 +1,11 @@
+## 本地 0.3.1505
+
+- 多个 Codex 对话共用一台 iPhone：手机工具自动按先来后到排队，连续调用期间保留控制权，60 秒无手机调用、`pua_device(action="release")` 或对话结束时归还；换手后先观察再动作，持有者崩溃只多等 3 秒，不需要重启手机。
+- 新增 `pua_device(action="status" | "claim" | "release")`：查看持有者、任务标签和队列，声明本对话的任务，或立即归还。排队时工具返回 `device_queued` 并说明谁在用、排第几；有人排队时结果附 `coordination.waiting`。
+- 租约按设备 udid 分目录（`~/.local/share/iphone-use/leases/<udid>/`），只用文件和 `flock`，没有常驻服务；约定见 `DEVICE_LEASE.md`，其他控制通道可按同一约定加入。
+- `scripts/phone.py --session` 持久模式让 CLI 回退也能跨调用保留控制权；预览面板提示手机正被另一个对话使用。
+- `pua_setup` 的 start / stop / build / configure / fetch 同样排队，status / discover 不排队。
+
 ## 本地 0.3.1504
 
 - 认证等待不再在最后不足一秒时发起新一轮查询。总等待预算耗尽返回等待状态，保留暂停；提前发生的通信超时仍报告 probe_unavailable。

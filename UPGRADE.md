@@ -3,7 +3,7 @@
 维护分支：`codex/iphone-use-p0-security`。
 初始上游基线：`5cc2fa8808187797d73aea2167104f370dc29724`（0.3.12）。
 本地修复版：0.3.13。这里的版本和基线是历史起点，不表示上游永远没有更新。
-当前本地版本：0.3.1504，基于上游 0.3.15。0.3.17 是旧编号的最后一个，之后按「本地版本号规则」一节编号。
+当前本地版本：0.3.1505，基于上游 0.3.15。0.3.17 是旧编号的最后一个，之后按「本地版本号规则」一节编号。
 
 ## 升级前
 
@@ -99,6 +99,27 @@ git diff --check
 | `server/iphone_use.py` | `VERSION` 和 `SCREEN_URI` 里的 `phone-<version>.html` |
 | `ui/src/app.ts` | MCP App 客户端自述版本；改后 `npm run build --prefix ui` 并提交 `assets/phone-screen.html` |
 | `CHANGELOG.md`、`README.md`、`README.en.md` | 新版本条目和「本地 x.y.z」小节 |
+
+## 租约接入点清单（合并上游时核对）
+
+多对话设备租约的全部逻辑在 `server/device_lease.py`，上游不会碰它。接入点只有下面几处，
+合并上游后逐项确认仍在，再跑 `tests/test_device_lease.py`（它端到端走 `Runtime.call`，
+接入点丢失会直接变红）：
+
+| 位置 | 内容 |
+|---|---|
+| `server/iphone_use.py` 顶部 | `from device_lease import DeviceLease, LeaseError, OBSERVING_TOOLS, lease_directory, needs_lease` |
+| `Runtime.__init__` | `self.lease=DeviceLease.get(lease_directory(self.state_dir))` |
+| `Runtime._dispatch` | 预览工具栏 Home / 截图走 `self.leased(..., wait_seconds=0)`；`pua_device` 分支；`with self.leased(...)` 包住 `_operate`，之后 `_after_operation` |
+| `Runtime.leased / _after_operation / device / _operate` | 四个方法整体属于租约接入 |
+| `Runtime.close` | `self.lease.close()` |
+| `SCHEMAS["device"]`、`DESCRIPTIONS["device"]`、`READS` | `pua_device` 工具定义 |
+| `INSTRUCTIONS` | 末尾的多对话一段 |
+| `server/wda_access.py` | `begin()` 的 safe 名单含 `pua_device` |
+| `scripts/phone.py` | `--session` |
+| `scripts/package.py` | 工具计数 21 / 19，`DEVICE_LEASE.md` 在 FILES 里 |
+| `tests/test_tool_loading.py` | 目录预算 31600 / 22500 |
+| `skills/`、`ui/src/app.ts` | 多对话段落与 `device_held` / `device_queued` 文案 |
 
 ## 安装后的验收
 
