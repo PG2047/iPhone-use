@@ -6,7 +6,7 @@ widget 为用户显示手机画面，模型只使用工具实际返回的观察�
 
 - 首帧尚未到达时，`frame_available=false` 不证明连接失败。预览使用独立 USB MJPEG 通道，与 PUA 控制通道分开；控制工具可用而预览缺帧时，不为此反复重启 PUA、新建 session 或循环截图。
 - 没有任何有效画面时保留 iPhone 外壳与黑色屏幕，中央只显示对应的连接、锁屏、认证、暂停或画面不可用图标。短暂断流保留最后一帧；缓存不是当前手机状态的证据。
-- `preview.paused=true` 时先查看 `pause_reason`。`device_locked` 用 `wait_auth` 自动检测解锁；`authentication` 或旧版 `unknown` 按 [认证接管](authentication.md) 设置目标 App 和页面标记自动等待，无需 Mac 确认；用户改为授权辅助短信登录时，按 [短信登录](sms-login.md) 的“已暂停时”请求恢复，按当前自动检测机制处理，不再要求 Mac 确认。
+- `preview.paused=true` 时先查看 `pause_reason`。`device_locked` 用 `wait_auth` 自动检测解锁；`authentication` 或旧版 `unknown` 按 [认证接管](authentication.md) 复用保存的目标 App 和页面标记。旧暂停没有恢复条件时，`wait_auth` 自动检查主屏幕；`waiting_home_screen` 时提示用户回到 iPhone 主屏幕并继续检测，无需用户抄写 App 或页面文字，也无需 Mac 确认。用户改为授权辅助短信登录时，按 [短信登录](sms-login.md) 的“已暂停时”请求恢复。
 - 用户可以点击底部刷新按钮重新连接未暂停的预览；刷新不能解除暂停。刷新不重启 PUA、不新建控制会话、不发送手机手势。模型不能代调 App 专用按钮工具。
 - 更新插件后，旧聊天可能仍连接旧进程或 UI 资源。重新连接聊天，关闭旧屏幕页后调用一次 `pua_screen()` 加载新资源；不必仅为更新画面重新安装或重启 PUA。
 

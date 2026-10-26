@@ -26,19 +26,30 @@ class ProbeClient(FakeWDA):
         self.bulk_query_stalls = False
         self.visibility_first_stalls = False
         self.depth = 50
+        self.stale_session = False
+        self.session_failure = False
         self.on_query = lambda: None
 
     def close(self):
         pass
 
     def request(self, method, path, payload=None, timeout=None):
+        if path == "/session":
+            self.calls.append((method, path, payload))
+            if self.session_failure:
+                raise WDAError("pua_unreachable", "private backend text")
+            self.stale_session = False
+            return {"value": {"sessionId": "auth-probe-session"}}
         if path.endswith("/appium/settings"):
             self.calls.append((method, path, payload))
+            if self.stale_session:
+                raise WDAError("invalid session id", "private backend text")
             if method == "POST":
                 value = payload["settings"]["shouldUseCompactResponses"]
                 if not value and self.fail_restore:
                     raise WDAError("pua_timeout", "private backend text")
                 self.compact = value
+                self.depth = payload["settings"].get("snapshotMaxDepth", self.depth)
             return {"value": {"shouldUseCompactResponses": self.compact, "snapshotMaxDepth": self.depth, "snapshotMaxChildren": 2147483647}}
         if path.endswith(("/element", "/elements")):
             self.calls.append((method, path, payload))
@@ -49,7 +60,7 @@ class ProbeClient(FakeWDA):
             predicate = payload["value"]
             if self.visibility_first_stalls and predicate.startswith("visible"):
                 raise WDAError("action_uncertain", "unrelated element visibility timed out", uncertain=True)
-            found = not self.empty if "TabBar" in predicate else self.blocker if "Keyboard" in predicate else self.page
+            found = not self.empty if "TabBar" in predicate or "TypeIcon" in predicate else self.blocker if "Keyboard" in predicate else self.page
             if self.rich:
                 return {"value": {"ELEMENT": "id", "value": "private input"} if path.endswith("/element") else [{"ELEMENT": "id", "value": "private input"}]}
             if path.endswith("/element"):
@@ -146,10 +157,54 @@ class AuthWaitTests(unittest.TestCase):
         self.assertTrue(result["resumed"])
         self.assertEqual({p for _, p, _ in self.client.calls}, {"/status", "/wda/locked"})
 
-    def test_no_marker_requires_target_without_phone_requests(self):
-        result = self.runtime.call("pua_screen", {"action": "wait_auth"})
-        self.assertEqual(result["state"], "auth_target_required")
+    def test_orphan_pause_cannot_resume_in_arbitrary_app(self):
+        result = self.runtime.call("pua_screen", {"action": "wait_auth", "timeout": 1})
+        self.assertEqual(result["state"], "waiting_home_screen")
+        self.assertTrue(result["paused"])
+        self.assertFalse(any(p.endswith("/element") for _, p, _ in self.client.calls))
+
+    def test_orphan_pause_recovers_only_on_unlocked_home_with_icons(self):
+        self.client.app = "com.apple.springboard"
+        for attr in ("locked", "empty", "blocker", "rich", "fail_restore"):
+            with self.subTest(attr=attr):
+                setattr(self.client, attr, True)
+                result = self.runtime.call("pua_screen", {"action": "wait_auth", "timeout": 1})
+                self.assertTrue(result["paused"])
+                self.assertNotIn("private", json.dumps(result))
+                setattr(self.client, attr, False)
+        result = self.runtime.call("pua_screen", {"action": "wait_auth", "timeout": 2})
+        self.assertEqual(result["state"], "home_screen_verified")
+        self.assertFalse(result["paused"])
+        self.assertFalse(result["authentication_verified"])
+
+    def test_pause_saves_target_for_another_runtime(self):
+        self.runtime.call("pua_screen", {"action": "pause", "bundle_id": self.client.app,
+                                       "ready_label": "Account overview"})
+        other = Runtime(self.runtime.state_dir)
+        self.addCleanup(other.close)
+        other.identify_device = Mock()
+        result = other.call("pua_screen", {"action": "wait_auth", "timeout": 2})
+        self.assertTrue(result["resumed"])
+
+    def test_explicit_other_app_does_not_inherit_stored_marker(self):
+        self.runtime.screen.set_paused(True, auth_target={"bundle_id": "original.app", "ready_label": "Overview"})
+        self.client.app = "com.apple.springboard"
+        result = self.runtime.call("pua_screen", {"action": "wait_auth", "bundle_id": "other.app", "timeout": 1})
+        self.assertTrue(result["paused"])
+        self.assertEqual(result["state"], "auth_target_mismatch")
         self.assertEqual(self.client.calls, [])
+
+    def test_new_pause_discards_previous_target(self):
+        self.runtime.screen.set_paused(True, auth_target={"bundle_id": self.client.app, "ready_label": "Overview"})
+        self.runtime.screen.set_paused(True)
+        self.assertEqual(self.runtime.screen._read_state()["auth_target"], {})
+
+    def test_new_pause_during_home_probe_cannot_be_cleared(self):
+        self.client.app = "com.apple.springboard"
+        self.client.on_query = lambda: self.runtime.screen.set_paused(True)
+        result = self.runtime.call("pua_screen", {"action": "wait_auth", "timeout": 2})
+        self.assertTrue(result["paused"])
+        self.assertEqual(result["state"], "pause_changed")
 
     def test_auth_heading_must_disappear_without_claiming_success(self):
         self.client.page = True
@@ -185,6 +240,68 @@ class AuthWaitTests(unittest.TestCase):
         self.assertEqual(result["error_code"], "auth_snapshot_incomplete")
         self.assertTrue(self.runtime.screen.paused())
         self.assertFalse(any(p.endswith(("/element", "/elements")) for _, p, _ in self.client.calls))
+
+    def test_missing_session_after_start_is_created_without_app_actions_or_content(self):
+        (self.runtime.state_dir / "session.json").unlink()
+        result = self.wait()
+        self.assertTrue(result["resumed"])
+        sessions = [payload for _, path, payload in self.client.calls if path == "/session"]
+        self.assertEqual(len(sessions), 1)
+        capabilities = sessions[0]["capabilities"]["alwaysMatch"]
+        self.assertFalse(capabilities["shouldTerminateApp"])
+        self.assertNotIn("bundleId", capabilities)
+        self.assertNotIn("defaultAlertAction", capabilities)
+        self.assertFalse(any("source" in path or "screenshot" in path or "launch" in path for _, path, _ in self.client.calls))
+        self.assertFalse(self.client.compact)
+
+    def test_stale_session_after_restart_is_replaced_once(self):
+        self.client.stale_session = True
+        result = self.wait()
+        self.assertTrue(result["resumed"])
+        self.assertEqual(sum(path == "/session" for _, path, _ in self.client.calls), 1)
+
+    def test_missing_session_creation_failure_keeps_pause_and_suppresses_backend_text(self):
+        (self.runtime.state_dir / "session.json").unlink()
+        self.client.session_failure = True
+        result = self.wait()
+        self.assertTrue(result["paused"])
+        self.assertEqual(result["state"], "probe_unavailable")
+        self.assertNotIn("private", json.dumps(result))
+
+    def test_missing_session_on_locked_or_wrong_app_does_not_create_session(self):
+        (self.runtime.state_dir / "session.json").unlink()
+        for args in ({"bundle_id": "other.app"}, {"bundle_id": self.client.app}):
+            self.client.locked = args["bundle_id"] == self.client.app
+            result = self.wait(timeout=1, **args)
+            self.assertTrue(result["paused"])
+        self.assertFalse(any(path == "/session" for _, path, _ in self.client.calls))
+
+    def test_wait_does_not_start_another_probe_with_subsecond_budget(self):
+        now = [0.0]
+        def probe(*args):
+            now[0] += 1.4
+            return False
+        with patch("wda_auth.time") as clock, patch.object(AuthWaiter, "_probe", side_effect=probe) as queried:
+            clock.monotonic.side_effect = lambda: now[0]
+            clock.sleep.side_effect = lambda duration: now.__setitem__(0, now[0] + duration)
+            result = self.wait(timeout=3)
+        queried.assert_called_once()
+        self.assertEqual(result["state"], "waiting_auth")
+        self.assertTrue(result["paused"])
+
+    def test_budget_expiry_is_waiting_but_early_transport_timeout_is_error(self):
+        for elapsed, expected in ((3.0, "waiting_auth"), (1.0, "probe_unavailable")):
+            with self.subTest(elapsed=elapsed):
+                now = [0.0]
+                def probe(*args):
+                    now[0] += elapsed
+                    raise WDAError("pua_timeout", "private backend text")
+                with patch("wda_auth.time") as clock, patch.object(AuthWaiter, "_probe", side_effect=probe):
+                    clock.monotonic.side_effect = lambda: now[0]
+                    result = self.wait(timeout=3)
+                self.assertEqual(result["state"], expected)
+                self.assertTrue(result["paused"])
+                self.assertNotIn("private", json.dumps(result))
 
 
 if __name__ == "__main__":

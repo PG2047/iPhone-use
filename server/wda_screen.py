@@ -209,6 +209,7 @@ class ScreenHub:
         if not paused or not isinstance(pause_id, str) or not re.fullmatch(r"[0-9a-f]{32}", pause_id):
             pause_id = None
         return {"paused": paused, "pause_reason": reason, "pause_id": pause_id,
+                "auth_target": self.clean_auth_target(raw.get("auth_target")) if paused else {},
                 "access_epoch": raw.get("access_epoch", 0),
                 "actors": dict(list(actors.items())[-32:]),
                 "events": events, "last_event_id": last_id if isinstance(last_id, int) and last_id >= 0 else 0,
@@ -352,7 +353,15 @@ class ScreenHub:
                 return True
         return False
 
-    def set_paused(self, paused, reason="authentication"):
+    @staticmethod
+    def clean_auth_target(target):
+        if not isinstance(target, dict):
+            return {}
+        return {key: value for key, value in target.items()
+                if key in ("bundle_id", "ready_label", "auth_label")
+                and isinstance(value, str) and 0 < len(value) <= 1000}
+
+    def set_paused(self, paused, reason="authentication", auth_target=None):
         if reason not in ("authentication", "device_locked"):
             raise ValueError("Unknown preview pause reason")
         with self._state_transaction() as state:
@@ -360,6 +369,7 @@ class ScreenHub:
             if not (paused and reason == "device_locked" and state["paused"]
                     and state["pause_reason"] != "device_locked"):
                 state.update(paused=bool(paused), pause_reason=reason if paused else None,
+                             auth_target=self.clean_auth_target(auth_target) if paused and reason == "authentication" else {},
                              pause_id=uuid.uuid4().hex if paused else None, access_epoch=state["access_epoch"] + 1)
             if paused:
                 state["actors"] = {}

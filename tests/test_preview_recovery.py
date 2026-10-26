@@ -19,6 +19,9 @@ from test_screen import jpeg
 
 class PreviewRecoveryTests(unittest.TestCase):
     def setUp(self):
+        auth_client = patch("wda_auth.WDAClient", side_effect=AssertionError("Unexpected live authentication request"))
+        auth_client.start()
+        self.addCleanup(auth_client.stop)
         directory = tempfile.TemporaryDirectory()
         self.addCleanup(directory.cleanup)
         self.runtime = Runtime(directory.name)
@@ -76,11 +79,12 @@ class PreviewRecoveryTests(unittest.TestCase):
                 self.assertEqual(self.other.start()["pause_reason"], reason)
                 self.assertTrue(self.runtime.call("pua_screen", {})["paused"])
                 self.runtime.identify_device = Mock()
-                with patch("subprocess.run") as process:
-                    result = self.runtime.call("pua_screen", {"action": "resume"})
+                with patch("subprocess.run") as process, patch("wda_auth.AuthWaiter._probe", return_value=False) as probe:
+                    result = self.runtime.call("pua_screen", {"action": "resume", "timeout": 1})
                 process.assert_not_called()
+                probe.assert_called_once()
                 self.assertFalse(result["confirmation_required"])
-                self.assertEqual(result["state"], "auth_target_required")
+                self.assertEqual(result["state"], "waiting_home_screen")
                 self.assertTrue(self.hub.paused())
                 self.assertEqual(self.client.calls, before)
 

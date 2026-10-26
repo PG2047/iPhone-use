@@ -46,9 +46,9 @@ class MockScreen(ScreenHub):
         self.events.append(("start", {}))
         return super().start()
 
-    def set_paused(self, paused, reason="authentication"):
+    def set_paused(self, paused, reason="authentication", auth_target=None):
         self.events.append(("pause", {"paused": paused}))
-        return super().set_paused(paused, reason)
+        return super().set_paused(paused, reason, auth_target=auth_target)
 
     def restart(self):
         self.events.append(("restart", {}))
@@ -75,6 +75,9 @@ class MockScreen(ScreenHub):
 
 class ScreenProtocolTests(unittest.TestCase):
     def setUp(self):
+        auth_client = patch("wda_auth.WDAClient", side_effect=AssertionError("Unexpected live authentication request"))
+        auth_client.start()
+        self.addCleanup(auth_client.stop)
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
 
@@ -184,16 +187,16 @@ class ScreenProtocolTests(unittest.TestCase):
         self.assertEqual(result["structuredContent"], screen.frame_result)
         self.assertEqual(client.calls, [])
 
-    def test_open_pause_and_targetless_resume_bypass_operation_lock_without_a_dialog(self):
+    def test_open_pause_and_targetless_resume_waits_for_operation_lock_without_a_dialog(self):
         runtime, client, screen = self.runtime()
         with (Path(self.directory.name) / "operation.lock").open("a") as lock:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
             runtime.call("pua_screen", {})
             paused = runtime.call("pua_screen", {"action": "pause"})
-            resumed = runtime.call("pua_screen", {"action": "resume"})
+            resumed = runtime.call("pua_screen", {"action": "resume", "timeout": 1})
         self.assertTrue(paused["paused"])
         self.assertFalse(resumed["confirmation_required"])
-        self.assertEqual(resumed["state"], "auth_target_required")
+        self.assertEqual(resumed["state"], "waiting_home_screen")
         self.assertTrue(resumed["paused"])
         self.assertTrue(screen.paused())
         self.assertEqual(client.calls, [])
@@ -201,11 +204,11 @@ class ScreenProtocolTests(unittest.TestCase):
     def test_ready_open_and_authentication_calls_share_one_host_widget_session(self):
         runtime, client, screen = self.runtime()
         results = []
-        with patch.object(runtime.setup_manager, "mirroring_running", return_value=False):
+        with patch.object(runtime.setup_manager, "mirroring_running", return_value=False), patch("wda_auth.AuthWaiter._probe", return_value=False):
             for name, arguments in (("pua_ready", {"screenshot": False, "recover": False}),
                                     ("pua_screen", {}), ("pua_screen", {"action": "pause"}),
                                     ("pua_ready", {"screenshot": False, "recover": False}),
-                                    ("pua_screen", {"action": "resume"})):
+                                    ("pua_screen", {"action": "resume", "timeout": 1})):
                 results.append(self.call_over_stdio(runtime, name, arguments))
         identifiers = [result["_meta"]["openai/widgetSessionId"] for result in results if "_meta" in result]
         self.assertTrue(identifiers[0])
