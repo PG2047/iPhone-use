@@ -90,6 +90,8 @@ const EMPTY_TEXT: Record<EmptyState, string> = {
 const DONE: Record<ToolName, string> = { refresh: '已刷新连接', home: '已回到主屏幕', screenshot: '截图已复制到剪贴板' };
 const FAILED: Record<string, string> = {
   device_busy: '手机正在执行操作，请稍后再试',
+  device_held: '手机正被另一个对话使用',
+  device_queued: '手机正被另一个对话使用，已排队',
   preview_paused: '认证接管期间已暂停',
   access_paused: '手机访问已暂停，请完成认证并在 Mac 确认恢复',
   clipboard_unavailable: '截图未能写入剪贴板',
