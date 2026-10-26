@@ -76,7 +76,8 @@ class LeaseTestCase(unittest.TestCase):
         runtime.client = client
         runtime.phone = PhoneController(client, runtime.state_dir)
         runtime.phone.screen = runtime.screen
-        runtime.phone.access_check = runtime.access.check
+        if hasattr(runtime, "access"):  # the maintenance fork's authentication gate; upstream has none
+            runtime.phone.access_check = runtime.access.check
         self.runtimes.append(runtime)
         return runtime
 
