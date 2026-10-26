@@ -29,8 +29,8 @@ import wda_image
 from analytics import Analytics
 
 PUAError=WDAError
-VERSION="0.3.1501"
-SCREEN_URI="ui://iphone-use/phone-0.3.1501.html"
+VERSION="0.3.1504"
+SCREEN_URI="ui://iphone-use/phone-0.3.1504.html"
 # Codex scopes reuse to the host, chat, server and UI resource. A stable result
 # ID keeps repeated READY/open/pause/resume calls in that chat on one panel,
 # including after the MCP process reconnects; no device identifiers are needed.
@@ -350,7 +350,7 @@ class Runtime:
         if name=="pua_screen_action" and args["action"] not in ("tap","drag","viewport"):return self.screen_action(args["action"])
         if name=="pua_screen":
             action=args.get("action","open")
-            if action=="pause":self.screen.set_paused(True)
+            if action=="pause":self.screen.set_paused(True, auth_target={k:v for k,v in args.items() if k in ("bundle_id","ready_label","auth_label")})
             elif action in ("wait_auth","resume"):
                 result=AuthWaiter(self).wait(**{k:v for k,v in args.items() if k!="action"})
                 return {**result,"confirmation_required":False,"runtime_version":VERSION}
@@ -362,6 +362,8 @@ class Runtime:
             try:fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
             except BlockingIOError:raise WDAError("device_busy","Another iPhone Use operation is running. Wait for it to finish before continuing; no action was executed.")
             try:
+                # Lifecycle work must not depend on an old/dead phone session.
+                if name=="pua_setup":return self._call(name,args)
                 if cache_path.is_file() and hasattr(self.client,"session_id"):
                     try:
                         cached=json.loads(cache_path.read_text())
@@ -377,7 +379,7 @@ class Runtime:
                 if name=="pua_screen_action":return self.screen_gesture(args)
                 return self._call(name,args)
             finally:
-                self.save_session()
+                if name!="pua_setup":self.save_session()
                 fcntl.flock(lock,fcntl.LOCK_UN)
 
     def save_session(self,restore=None):
@@ -600,6 +602,11 @@ class Runtime:
                 result=manager.setup(**args)
                 if result.get("ok") and args["action"] in ("stop","configure","start"):
                     self.client.close();self.client.session_id=None;self.phone.reset()
+                    self.save_session()
+                if args["action"]=="start" and self.screen.paused():
+                    result["preview"]=self.screen.pause_status()
+                    if result.get("ok"):
+                        result["next_step"]="Wait for this start job to report service.ready=true, then run pua_screen(action=wait_auth) with saved recovery conditions. Startup does not clear authentication pause; run READY only after paused=false."
                 if result.get("ok") and args["action"]=="configure" and "local_port" in args:
                     self.base_url=candidate_url;self.setup_manager=manager
                     self.apps.setup_manager=manager
@@ -717,7 +724,7 @@ INSTRUCTIONS=(
  "Execute routine actions optimistically: observe=none and verify=false are defaults, verified=false/verification_deferred=true is normal and does not require a separate verification call. If the next decision needs the resulting page, request observe=tree/both in the action and inspect previous success while planning that next step. "
  "Chain known steps in batch; do not batch speculative repeated swipes toward an unknown target. Inspect the next page first, using a screenshot when tree truncation hides the boundary. explicit expect/verify opts into checking key outcomes. Send long text whole: when type_text returns input_complete=false, call it again with only continue_token; a batch stopped by input_continues or time_budget continues from stopped_at. "
  "Verify final critical results before reporting completion. Retry or replan only after observing a definite failure; never replay uncertain input/submission or an already executed multi-step operation wholesale. No_scroll_progress from explicit verification does not prove empty/complete data. "
- "For App passwords or Face ID call pua_screen(action=pause), tell the user to finish on the phone, then keep calling pua_screen(action=wait_auth, bundle_id=target, ready_label=known_post_auth_label or auth_label=observed_auth_heading, timeout=25). Do not request a chat completion reply or a Mac confirmation. phone_locked already pauses as device_locked; wait_auth needs no label for that case. Waiting probes return only status, never field values, trees or screenshots. A waiting result is not completion: keep the current task active and repeat bounded waits. A cleared UI is not proof of login or business success: obtain fresh state and continue only the remaining authorized work. Never replay uncertain submissions. For unsupported/custom authentication do not guess a marker; report the detection limit. resume is the same automatic probe as wait_auth and never opens a Mac dialog. No Mac user confirmation is required; missing page evidence or a timeout must never be described as waiting for a Mac click. "
+ "An authentication pause permits setup status/stop/start with the existing configuration/build. If the service stops, start it once and await the same job; keep the pause, then wait_auth before READY. A missing/stale auth session can be recreated without an App launch or content read. For App passwords or Face ID call pua_screen(action=pause, bundle_id=target, ready_label=known_post_auth_label or auth_label=observed_auth_heading) to retain recovery markers, tell the user to finish on the phone, then keep calling pua_screen(action=wait_auth, bundle_id=target, ready_label=known_post_auth_label or auth_label=observed_auth_heading, timeout=25). Do not request a chat completion reply or a Mac confirmation. phone_locked already pauses as device_locked; wait_auth needs no label for that case. Waiting probes return only status, never field values, trees or screenshots. A waiting result is not completion: keep the current task active and repeat bounded waits. A cleared UI is not proof of login or business success: obtain fresh state and continue only the remaining authorized work. Never replay uncertain submissions. wait_auth without arguments reuses saved markers. If markers are absent, it checks only unlocked SpringBoard with visible app icons and no authentication blockers. On waiting_home_screen ask the user to return to the iPhone Home Screen and continue bounded waits; home_screen_verified requires fresh READY. Never clear pause state manually or issue Home while paused. For unsupported/custom authentication do not guess a marker; use the Home Screen recovery path. resume is the same automatic probe as wait_auth and never opens a Mac dialog. No Mac user confirmation is required; missing page evidence or a timeout must never be described as waiting for a Mac click. "
  "Operation action_complete/verified fields do not mean the user's entire task is complete. Track all deliverables, give commentary progress and continue tools while work remains; final only after completion or a concrete blocker. For an unavailable MCP binding use the skill's direct Runtime fallback with the same operation lock."
 )
 

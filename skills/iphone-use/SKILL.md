@@ -19,11 +19,13 @@ description: 通过 PUA（Phone Use Agent）MCP 工具高效操作真实 iPhone�
 - `ready=false, state="recovering"` 或 `state="recovery_required"`：没有 error、MCP isError=false，仍不表示手机可操作。按 [启动与恢复](references/startup.md) 查询同一工作或按用户限制处理。
 - READY 返回 `pua_unreachable`、连接拒绝、`not_ready` 或明确服务未启动：这是启动分支，不是整个任务失败。`recover=true` 不会自动冷启动；调用 `pua_setup(action="status")`，复用活动中的 start / recover 工作，或在已配置且没有活动工作时 start 一次，服务就绪后重验 READY。逐步做法见 [启动与恢复](references/startup.md)，缺少配置 / 源码 / 构建时读取 `iphone-use-setup`。
 
+认证暂停期间若服务停止，允许按 [启动与恢复](references/startup.md) 使用 setup status/start 复用现有构建；启动不会解除暂停。服务在线后先 wait_auth，paused=false 后再 READY，不把 access_paused 与服务停止互相等待。
+
 只读、禁止启动 / 重启等用户限制始终保留。恢复后复用 READY 的新观察了解原任务进度，不能重放可能已经生效的业务动作。
 
 READY 关联手机屏幕侧边栏，宿主支持时默认打开或复用本聊天已有面板；重复 setup / 恢复通道、暂停 / 恢复预览沿用同一个 widget。已有面板时直接继续，不为刷新再调用屏幕打开工具；需要重新打开已关闭的面板时调用一次 `pua_screen()`，不要为打开画面重复 READY。用户要求“先打开 widget 让我看”时先打开，再继续初始化与已授权任务；只有明确要求等他确认再操作时才等待。widget 顶部显示机型和 Live 状态，底部的刷新 / 主屏幕 / 截图三个按钮只供用户自己点击，不是模型的工具：不要调用仅供 App 使用的 `pua_screen_frame` 和 `pua_screen_action`，不要为刷新预览增加轮询、截图或 observe。用户点过主屏幕后页面会变，按下一次观察到的实际状态继续。画面留空、光效或 cursor 都不证明 READY、动作成功或任务完成，也不是模型观察。预览问题按 [屏幕通道说明](references/screen.md) 排查，不为它反复恢复控制通道。
 
-普通 App 短信登录已获用户明确授权时，先读 [短信登录](references/sms-login.md)。密码、PIN、未授权的验证码、Face ID / Touch ID 或手机解锁由用户在手机上完成，按 [认证接管与恢复](references/authentication.md) 自动等待。App 认证先 `pua_screen(action="pause")`，然后提示用户在手机上完成即可；不要求回复「已完成继续」，不默认调用宿主提问工具或 Mac 恢复窗口。继续调用 `pua_screen(action="wait_auth", bundle_id=目标App, ready_label=已知目标页标记, timeout=25)`；也可用 `auth_label=先前观察到的认证标题` 检查提示消失。`phone_locked` 已暂停为 `device_locked`，直接 `wait_auth`，不再 pause。每次返回仍在等待时继续有界等待，不结束任务或要求 Mac 确认。探测不返回字段值、树或截图；其他手机动作仍暂停。`paused=false` 后重新 READY 或观察，核对当前 App 与页面，再继续剩余工作。认证提示消失不等于登录或业务成功。无法确定页面标记时说明具体检测限制，不编造标记，不把超时当作完成。`resume` 是 `wait_auth` 的兼容别名，也不会打开 Mac 弹窗。任何等待、检测失败或缺少页面标记，都不能解释为需要用户在 Mac 确认。
+普通 App 短信登录已获用户明确授权时，先读 [短信登录](references/sms-login.md)。密码、PIN、未授权的验证码、Face ID / Touch ID 或手机解锁由用户在手机上完成，按 [认证接管与恢复](references/authentication.md) 自动等待。App 认证先 `pua_screen(action="pause", bundle_id=目标App, ready_label=已知目标页标记)`（或传已观察到的 `auth_label`）保存恢复条件，然后提示用户在手机上完成即可；不要求回复「已完成继续」，不默认调用宿主提问工具或 Mac 恢复窗口。继续调用 `pua_screen(action="wait_auth", bundle_id=目标App, ready_label=已知目标页标记, timeout=25)`；也可用 `auth_label=先前观察到的认证标题` 检查提示消失。`phone_locked` 已暂停为 `device_locked`，直接 `wait_auth`，不再 pause。每次返回仍在等待时继续有界等待，不结束任务或要求 Mac 确认。探测不返回字段值、树或截图；其他手机动作仍暂停。`paused=false` 后重新 READY 或观察，核对当前 App 与页面，再继续剩余工作。认证提示消失不等于登录或业务成功。后续聊天可用不带页面参数的 `wait_auth` 复用已保存条件。旧暂停缺少条件时自动检查主屏幕；`waiting_home_screen` 时提示用户回到 iPhone 主屏幕并持续有界检测，`home_screen_verified` 后重验 READY。该检测只核对已解锁的 SpringBoard、可见 App 图标和认证阻挡控件，不读取内容。不要猜测标记、手工清除暂停或把超时当作完成。`resume` 是 `wait_auth` 的兼容别名，也不会打开 Mac 弹窗。任何等待、检测失败或缺少页面标记，都不能解释为需要用户在 Mac 确认。
 
 ## 按下一步需要选择观察
 

@@ -21,6 +21,9 @@ from test_controller import FakeWDA
 
 class AccessTests(unittest.TestCase):
     def setUp(self):
+        auth_client = patch("wda_auth.WDAClient", side_effect=AssertionError("Unexpected live authentication request"))
+        auth_client.start()
+        self.addCleanup(auth_client.stop)
         directory = tempfile.TemporaryDirectory()
         self.addCleanup(directory.cleanup)
         self.runtime = Runtime(directory.name)
@@ -44,8 +47,8 @@ class AccessTests(unittest.TestCase):
         cases = [("observe", {"mode": mode}) for mode in ("tree", "screenshot", "both")]
         cases += [("tap", {"x": 1, "y": 1}), ("type_text", {"text": "secret"}),
                   ("batch", {"steps": [{"op": "observe", "args": {}}]}),
-                  ("apps", {"query": "app"}), ("ready", {"screenshot": False}),
-                  ("setup", {"action": "start"}), ("setup", {"action": "configure"})]
+                  ("apps", {"query": "app"}), ("ready", {"screenshot": False})]
+        cases += [("setup", {"action": action}) for action in ("configure", "build", "fetch")]
         cases += [("screen_action", {"action": a}) for a in ("refresh", "home", "screenshot")]
         self.runtime.apps.lookup = Mock()
         self.runtime.setup_manager.setup = Mock()
@@ -59,14 +62,83 @@ class AccessTests(unittest.TestCase):
         frame = self.runtime.call("pua_screen_frame", {})
         self.assertIsNone(frame["frame"])
 
+    def test_start_during_auth_pause_preserves_gate_and_points_to_auth_wait(self):
+        target = {"bundle_id": "com.example.phone", "ready_label": "Account overview"}
+        self.other.set_paused(True, auth_target=target)
+        before = self.other._read_state()
+        self.runtime.setup_manager.setup = Mock(return_value={
+            "ok": True, "job_id": "a" * 32, "service": {"ready": True}})
+
+        result = self.runtime.call("pua_setup", {"action": "start"})
+
+        self.runtime.setup_manager.setup.assert_called_once_with(action="start")
+        self.assertTrue(result["ok"])
+        self.assertIn("wait_auth", result["next_step"])
+        self.assertEqual(result["preview"], {"paused": True, "pause_reason": "authentication"})
+        after = self.other._read_state()
+        for key in ("paused", "pause_reason", "pause_id", "access_epoch", "auth_target"):
+            self.assertEqual(after[key], before[key], key)
+        for name, args in (("pua_observe", {"mode": "tree"}), ("pua_tap", {"x": 1, "y": 1})):
+            self.denied(name, args)
+        self.assertEqual(self.client.calls, [])
+
+    def test_setup_skips_old_session_reads_and_pending_settings_restore(self):
+        cache = self.runtime.state_dir / "session.json"
+        stale = {"url": self.runtime.base_url, "session_id": "stale-session",
+                 "settings_restore": {"snapshotMaxDepth": 50}}
+        self.other.set_paused(True)
+        self.client.reapply_settings = Mock(side_effect=AssertionError("Setup restored old session settings"))
+        read_text = Path.read_text
+
+        def guarded_read(path, *args, **kwargs):
+            if path == cache:
+                raise AssertionError("Setup read the stale session cache")
+            return read_text(path, *args, **kwargs)
+
+        for action in ("status", "start", "stop"):
+            with self.subTest(action=action):
+                cache.write_text(json.dumps(stale))
+                self.client.session_id = "in-memory-stale-session"
+                self.runtime.setup_manager.setup = Mock(return_value={"ok": True})
+                with patch.object(Path, "read_text", guarded_read):
+                    self.runtime.call("pua_setup", {"action": action})
+                self.runtime.setup_manager.setup.assert_called_once_with(action=action)
+                self.client.reapply_settings.assert_not_called()
+                self.assertEqual(self.client.calls, [])
+                self.assertTrue(self.other.paused())
+                if action == "status":
+                    self.assertEqual(json.loads(cache.read_text()), stale)
+                    self.assertEqual(self.client.session_id, "in-memory-stale-session")
+                else:
+                    self.assertFalse(cache.exists())
+                    self.assertIsNone(self.client.session_id)
+
+    def test_failed_start_preserves_stale_cache_without_restoring_it(self):
+        cache = self.runtime.state_dir / "session.json"
+        stale = {"url": self.runtime.base_url, "session_id": "stale-session",
+                 "settings_restore": {"snapshotMaxDepth": 50}}
+        cache.write_text(json.dumps(stale))
+        self.other.set_paused(True)
+        self.client.reapply_settings = Mock(side_effect=AssertionError("Failed start restored old settings"))
+        self.runtime.setup_manager.setup = Mock(return_value={"ok": False, "error": "missing_build"})
+        with patch.object(self.runtime, "save_session", wraps=self.runtime.save_session) as save:
+            result = self.runtime.call("pua_setup", {"action": "start"})
+        save.assert_not_called()
+        self.client.reapply_settings.assert_not_called()
+        self.assertFalse(result["ok"])
+        self.assertEqual(json.loads(cache.read_text()), stale)
+        self.assertTrue(self.other.paused())
+        self.assertEqual(self.client.calls, [])
+
     def test_resume_without_target_keeps_pause_and_never_requests_confirmation(self):
         self.runtime.identify_device = Mock()
         self.other.set_paused(True)
-        with patch("subprocess.run") as process:
-            result = self.runtime.call("pua_screen", {"action": "resume"})
+        with patch("subprocess.run") as process, patch("wda_auth.AuthWaiter._probe", return_value=False) as probe:
+            result = self.runtime.call("pua_screen", {"action": "resume", "timeout": 1})
+        probe.assert_called_once()
         self.assertFalse(result["confirmation_required"])
         self.assertTrue(self.other.paused())
-        self.assertEqual(result["state"], "auth_target_required")
+        self.assertEqual(result["state"], "waiting_home_screen")
         process.assert_not_called()
         self.assertEqual(self.client.calls, [])
 

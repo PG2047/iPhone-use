@@ -38,7 +38,7 @@ class AccessGate:
 
     def begin(self, name, args, received_epoch=None):
         safe = name in ("pua_screen", "pua_screen_frame", "pua_metrics") or (
-            name == "pua_setup" and args.get("action") in ("status", "stop"))
+            name == "pua_setup" and args.get("action") in ("status", "stop", "start"))
         with self.state() as state:
             token = {"epoch": state["access_epoch"], "safe": safe, "mutation": False,
                      "preview": name == "pua_screen_frame",

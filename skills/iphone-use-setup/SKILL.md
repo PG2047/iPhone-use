@@ -15,6 +15,8 @@ description: 配置 PUA（Phone Use Agent），在用户自己的 iPhone 上安�
 
 `phone_locked` 会自动暂停预览并记录 `device_locked`，无需再显式 pause。提示用户在手机上解锁，并持续调用 `pua_screen(action="wait_auth", timeout=25)`；检测解锁后重验 READY，无需用户在 Mac 通知。App 认证按认证参考设置页面标记自动等待。READY 的 `preview` 返回暂停原因；不要把预览空白当成控制通道失效。
 
+认证暂停允许 status/stop/start，仍不开放 configure/fetch/build。服务停止时先正常 start 并等待同一 job；暂停保持有效，服务就绪后先 wait_auth，paused=false 后再 READY。认证检测可在会话失效时建立不指定 App 的检测会话，不能因此读取页面或切换 App。
+
 ## 服务未启动时继续初始化
 
 先区分请求超时和连接失败。READY 返回 `pua_timeout` 时，按返回的 `retry_after_seconds` 在宿主侧等待（当前为 2 秒），再用相同参数重试 READY；最多两次延迟尝试，仍超时只调用 `pua_setup(action="status")` 检查服务、工作和日志，不直接 start / recover。不要用 `pua_wait` 代替等待或立即重读树，手机端原请求可能仍在执行。普通观察 / 动作后观察超时同样先等待，再取一次 screenshot；最多两次延迟观察后只诊断，不重放动作。重复超时本身不授权重启。

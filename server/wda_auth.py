@@ -3,6 +3,7 @@ import fcntl
 import json
 import os
 import re
+import tempfile
 import time
 
 from wda_client import WDAClient, WDAError, SESSION_SETTINGS
@@ -24,21 +25,41 @@ class AuthWaiter:
             # Give legacy pauses an identity without clearing them.
             pause_id = screen.reconnect_pause_id()
         device_lock = state["pause_reason"] == "device_locked"
-        if not device_lock and not (bundle_id and (ready_label or auth_label)):
-            return {"paused": True, "state": "auth_target_required",
-                    "next_step": "Use wait_auth with the target bundle_id and an observed ready_label or auth_label from task context. No Mac dialog exists; do not ask the user to click one. Do not supply credentials."}
+        target = state.get("auth_target", {})
+        if not device_lock and bundle_id and target.get("bundle_id") and bundle_id != target["bundle_id"]:
+            return {"paused": True, "state": "auth_target_mismatch", "replay_action": False,
+                    "next_step": "Use wait_auth without App parameters to reuse this pause's saved recovery target."}
+        # Explicit targets never inherit labels from a different App.
+        if not bundle_id or bundle_id == target.get("bundle_id"):
+            bundle_id = bundle_id or target.get("bundle_id")
+            ready_label = ready_label or target.get("ready_label")
+            auth_label = auth_label or target.get("auth_label")
+        home_only = not device_lock and not (bundle_id and (ready_label or auth_label))
+        if home_only:
+            bundle_id = "com.apple.springboard"
+            ready_label = auth_label = None
         deadline = time.monotonic() + timeout
         stable = 0
-        last_state = "waiting_auth"
+        attempts = 0
+        last_state = "waiting_home_screen" if home_only else "waiting_auth"
+        budget_exhausted = False
         while time.monotonic() < deadline:
+            # Do not begin a new round with a sub-second remainder after an
+            # ordinary waiting result. It creates artificial transport timeouts.
             current = screen._read_state()
             if current["pause_id"] != pause_id or current["access_epoch"] != epoch:
                 return {"paused": current["paused"], "state": "pause_changed", "fresh_observation_required": True}
+            if attempts and stable == 0 and deadline - time.monotonic() < 1:
+                break
+            attempts += 1
             try:
-                clear = self._probe(deadline, device_lock, bundle_id, ready_label, auth_label)
+                clear = self._probe(deadline, device_lock, bundle_id, ready_label, auth_label, home_only)
                 stable = stable + 1 if clear else 0
-                last_state = "waiting_auth"
+                last_state = "waiting_home_screen" if home_only else "waiting_auth"
             except (WDAError, OSError, ValueError, TypeError, KeyError) as exc:
+                if isinstance(exc, WDAError) and exc.code == "pua_timeout" and time.monotonic() >= deadline:
+                    budget_exhausted = True
+                    break
                 # Backend error messages can contain page content. Return only a code.
                 return {"paused": True, "state": "probe_unavailable",
                         "error_code": exc.code if isinstance(exc, WDAError) else "invalid_probe",
@@ -46,14 +67,16 @@ class AuthWaiter:
                         "replay_action": False}
             if stable >= 2:
                 resumed = screen.resume_after_auth_probe(pause_id, epoch)
-                return {"paused": screen.paused(), "state": "auth_ui_cleared" if resumed else "pause_changed",
+                return {"paused": screen.paused(), "state": ("home_screen_verified" if home_only else "auth_ui_cleared") if resumed else "pause_changed",
                         "resumed": resumed, "authentication_verified": False,
                         "fresh_observation_required": True, "replay_action": False}
             time.sleep(min(1, max(0, deadline - time.monotonic())))
         return {"paused": True, "state": last_state, "retry_after_seconds": 1,
-                "next_step": "Continue wait_auth while the user authenticates on the phone. No Mac confirmation or chat reply is needed."}
+                "probe_budget_exhausted": budget_exhausted,
+                "next_step": ("Recovery markers are missing. Return to the iPhone Home Screen; continue wait_auth to verify unlocked SpringBoard with visible app icons and no authentication UI. No Mac confirmation or chat reply is needed."
+                              if home_only else "Continue wait_auth while the user authenticates on the phone. No Mac confirmation or chat reply is needed.")}
 
-    def _probe(self, deadline, device_lock, bundle_id, ready_label, auth_label):
+    def _probe(self, deadline, device_lock, bundle_id, ready_label, auth_label, home_only=False):
         runtime = self.runtime
         # Serialize settings with every normal phone operation, across processes.
         with (runtime.state_dir / "operation.lock").open("a") as lock:
@@ -77,12 +100,56 @@ class AuthWaiter:
                     return True
                 if (request("GET", "/wda/activeAppInfo") or {}).get("bundleId") != bundle_id:
                     return False
-                cached = json.loads((runtime.state_dir / "session.json").read_text())
+                cache_path = runtime.state_dir / "session.json"
+                try:
+                    cached = json.loads(cache_path.read_text())
+                except FileNotFoundError:
+                    cached = None
+                if cached is not None and (not isinstance(cached, dict) or cached.get("url") != runtime.base_url):
+                    raise WDAError("auth_session_required", "A matching local session is required.")
+                cached = cached or {}
                 sid = cached.get("session_id")
-                if cached.get("url") != runtime.base_url or not isinstance(sid, str) or not re.fullmatch(r"[A-Za-z0-9-]{1,128}", sid):
-                    raise WDAError("auth_session_required", "An existing session is required.")
+                if sid is not None and (not isinstance(sid, str) or not re.fullmatch(r"[A-Za-z0-9-]{1,128}", sid)):
+                    raise WDAError("auth_session_required", "Invalid local session identity.")
+
+                def create_probe_session():
+                    # No bundleId, app launch, alert acceptance, source or pixels.
+                    self.stage = "session"
+                    result = client.request("POST", "/session", {"capabilities": {"alwaysMatch": {
+                        "shouldWaitForQuiescence": False, "shouldTerminateApp": False,
+                        "waitForIdleTimeout": 0}}}, timeout=min(10, WDAClient.remaining(deadline)))
+                    value = result.get("value") or {}
+                    new_sid = result.get("sessionId") or (value.get("sessionId") if isinstance(value, dict) else None)
+                    if not isinstance(new_sid, str) or not re.fullmatch(r"[A-Za-z0-9-]{1,128}", new_sid):
+                        raise WDAError("invalid_response", "Invalid authentication session identity.")
+                    # Save before settings: later probes can retry settings without
+                    # repeatedly creating sessions after a transient failure.
+                    fd, temporary = tempfile.mkstemp(prefix=".auth-session-", dir=runtime.state_dir)
+                    try:
+                        with os.fdopen(fd, "w") as stream:
+                            json.dump({"url": runtime.base_url, "session_id": new_sid,
+                                       "auth_settings_pending": True}, stream)
+                        os.replace(temporary, cache_path)
+                    finally:
+                        if os.path.exists(temporary):os.unlink(temporary)
+                    return new_sid
+
+                new_session = not sid
+                if new_session:
+                    sid = create_probe_session()
                 prefix = f"/session/{sid}"
-                settings = request("GET", prefix + "/appium/settings")
+                try:
+                    settings = request("GET", prefix + "/appium/settings")
+                except WDAError as exc:
+                    if new_session or exc.code != "invalid session id":raise
+                    sid = create_probe_session()
+                    new_session = True
+                    prefix = f"/session/{sid}"
+                    settings = request("GET", prefix + "/appium/settings")
+                if new_session or cached.get("auth_settings_pending") is True:
+                    request("POST", prefix + "/appium/settings", {"settings": {
+                        **SESSION_SETTINGS, "shouldUseCompactResponses": True}})
+                    settings = request("GET", prefix + "/appium/settings")
                 compact = settings.get("shouldUseCompactResponses") if isinstance(settings, dict) else None
                 if not isinstance(compact, bool):
                     raise WDAError("invalid_response", "Compact response mode is unavailable.")
@@ -110,7 +177,9 @@ class AuthWaiter:
                     # on unrelated elements in long Settings or custom pages.
                     # An empty Application/Window tree cannot prove that an auth
                     # heading disappeared. Require actual noneditable UI content.
-                    if not exists("(type == 'XCUIElementTypeButton' OR type == 'XCUIElementTypeStaticText' OR type == 'XCUIElementTypeNavigationBar' OR type == 'XCUIElementTypeTabBar') AND visible == 1"):
+                    content = ("type == 'XCUIElementTypeIcon' AND visible == 1" if home_only else
+                               "(type == 'XCUIElementTypeButton' OR type == 'XCUIElementTypeStaticText' OR type == 'XCUIElementTypeNavigationBar' OR type == 'XCUIElementTypeTabBar') AND visible == 1")
+                    if not exists(content):
                         return False
                     if exists("(type == 'XCUIElementTypeSecureTextField' OR type == 'XCUIElementTypeKeyboard' OR type == 'XCUIElementTypeAlert' OR type == 'XCUIElementTypeSheet') AND visible == 1"):
                         return False

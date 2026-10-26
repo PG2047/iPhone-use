@@ -250,6 +250,18 @@ MIT License. See [third-party notices](THIRD_PARTY_NOTICES.md).
 
 Click the live phone image to tap, or drag and release to swipe. Coordinates follow the displayed image as the panel resizes. Two-finger trackpad scrolling and mouse wheels scroll or page the phone, following the system scroll direction. Each wheel burst sends one swipe; momentum and input received during an operation are not queued. Long presses, phone multi-touch, pinch zoom, and keyboard input are not supported. Input is disabled while the preview is paused, offline, stale, or busy. Cancelled gestures and releases outside the image do nothing. Timed-out gestures are never replayed automatically; inspect the phone before trying again.
 
+## Local 0.3.1504
+
+Avoid starting authentication probes with a sub-second remaining budget. Budget expiry remains a paused waiting state; earlier transport timeouts remain errors.
+
+## Local 0.3.1503
+
+An authentication pause permits starting the existing configured service without clearing the pause. Once service is ready, run wait_auth before READY. Probes can create a missing or expired session without launching an App, reading page content, or accepting alerts.
+
+## Local 0.3.1502
+
+Authentication pauses retain supplied App and page markers across chats. A pause without recovery markers can resume after two checks of unlocked SpringBoard with visible app icons and no authentication blockers. Probes return no field values or images. Recovery does not prove login success.
+
 ## Local 0.3.1501
 
 Merged upstream 0.3.15, including the `pua_screenshot` system screenshot tool and the analytics changes. Local versions now follow `0.<upstream minor>.<upstream patch × 100 + local serial>`; see UPGRADE.md. The local build registers the MCP server with `IPHONE_USE_ANALYTICS=0`, so anonymous usage reporting is off by default.
