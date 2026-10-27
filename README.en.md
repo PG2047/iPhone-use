@@ -250,6 +250,10 @@ MIT License. See [third-party notices](THIRD_PARTY_NOTICES.md).
 
 Click the live phone image to tap, or drag and release to swipe. Coordinates follow the displayed image as the panel resizes. Two-finger trackpad scrolling and mouse wheels scroll or page the phone, following the system scroll direction. Each wheel burst sends one swipe; momentum and input received during an operation are not queued. Long presses, phone multi-touch, pinch zoom, and keyboard input are not supported. Input is disabled while the preview is paused, offline, stale, or busy. Cancelled gestures and releases outside the image do nothing. Timed-out gestures are never replayed automatically; inspect the phone before trying again.
 
+## Local 0.3.1506
+
+The lease now lives in the channel-neutral `~/.local/share/device-lease/ios-<udid>`, so other control channels such as a NanoKVM can join the same queue by following [DEVICE_LEASE.md](DEVICE_LEASE.md). The lock library is a platform-neutral reference implementation; iPhone Use's own rules moved to `server/lease_policy.py`, and the tuning variables are renamed `DEVICE_LEASE_*`.
+
 ## Local 0.3.1505
 
 Several Codex chats can share one iPhone like a shared printer: the first chat to touch the phone takes control, later chats queue in FIFO order, control stays with a chat while it keeps calling, and it is handed back after 60 idle seconds, on `pua_device(action="release")` or when the chat ends. After a handover the next chat must look at the screen before acting; a crashed holder releases the kernel lock by itself, so the phone never needs a reboot. `pua_device(action="status")` shows the holder, its task label and the queue. Files and `flock` only, no daemon; see [DEVICE_LEASE.md](DEVICE_LEASE.md) for the on-disk protocol.
