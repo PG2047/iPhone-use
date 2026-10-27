@@ -1,21 +1,25 @@
-"""Per-device cooperative lease for independent iPhone Use processes.
+"""Device Lease: one physical device, many independent control processes, one at a time.
 
-Codex starts one MCP process per chat. The first phone call of a process takes a
-kernel ``flock`` on ``<lease_dir>/device.lock`` and keeps it while calls keep
-coming; a watchdog releases it after an idle period, and process death releases
-it through the kernel. Other processes queue through ticket files in FIFO order.
+Reference implementation of the Device Lease protocol, on-disk format 1 (DEVICE_LEASE.md).
 
-Everything is plain files plus ``flock``: no daemon, no socket, no database, so a
-tool written in any language can join the same queue by following the layout
-documented in ``DEVICE_LEASE.md``.
+Several AI chats, each its own process, and several control channels (UI automation over
+USB, a hardware KVM, ...) may drive the same phone. The first call of a process that would
+touch the device takes a kernel ``flock`` on ``<lease_dir>/device.lock`` and keeps it while
+calls keep coming; a watchdog hands it back after an idle period, and process death hands it
+back through the kernel. Waiting processes queue through ticket files in FIFO order.
 
-Layout of ``lease_dir``::
+Plain files plus ``flock``: no daemon, socket or database, so a tool in any language can join
+the same queue by following DEVICE_LEASE.md.
+
+Channels vendor this file unchanged and keep their own policy in their own code: which calls
+need the lease, which calls act on the current screen, which ones count as a fresh look at
+it, and how queue errors are worded for their users.
+
+Layout of one lease directory (default ``~/.local/share/device-lease/<platform>-<device id>``)::
 
     device.lock          the lease itself (held open by the owner process)
     device-owner.json    pid, label, transport, timestamps, generation, released_at
     device-queue/        one ``<ns>-<pid>.json`` ticket per waiting process
-
-Only this module touches these files inside iPhone Use.
 """
 import contextlib
 import datetime as dt
@@ -28,15 +32,46 @@ import re
 import threading
 import time
 
-TRANSPORT = "wda"
-LEASE_ROOT = Path.home() / ".local/share/iphone-use/leases"
-READ_TOOLS = frozenset({"pua_ready", "pua_observe", "pua_find", "pua_wait"})
-OBSERVING_TOOLS = frozenset({"pua_ready", "pua_observe", "pua_find"})
-# Tools that never need the lease: diagnostics, catalogs, preview polling and the
-# authentication wait, which are read-only for the shared screen.
-UNLEASED_TOOLS = frozenset({"pua_doctor", "pua_apps", "pua_metrics", "pua_screen", "pua_screen_frame", "pua_device"})
-LEASED_SETUP_ACTIONS = frozenset({"start", "stop", "build", "configure", "fetch"})
-UNLEASED_SCREEN_ACTIONS = frozenset({"refresh", "viewport"})
+PROTOCOL_FORMAT = 1
+LIBRARY_VERSION = "2.0.0"
+DEFAULT_LABEL = "未命名任务"
+_PLATFORM = re.compile(r"[a-z][a-z0-9]{1,15}")
+_DEVICE_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{2,127}")
+
+
+def lease_root():
+    """``DEVICE_LEASE_ROOT`` or ``~/.local/share/device-lease``; read on each call so tests can move it."""
+    override = os.environ.get("DEVICE_LEASE_ROOT")
+    return Path(override).expanduser() if override else Path.home() / ".local/share/device-lease"
+
+
+def device_directory(platform, device_id):
+    """Lease directory of one physical device: ``<root>/<platform>-<device id>``.
+
+    Name the hardware, never a connection: the iOS UDID, the Android ``ro.serialno`` (USB and
+    Wi-Fi adb list the same phone twice), or a fingerprint of an appliance such as a KVM.
+    """
+    if not isinstance(platform, str) or not _PLATFORM.fullmatch(platform):
+        raise ValueError("platform must be 2-16 lowercase letters or digits, e.g. ios or android")
+    if not isinstance(device_id, str) or not _DEVICE_ID.fullmatch(device_id) or ".." in device_id:
+        raise ValueError("device id must be 3-128 letters, digits, dots, underscores or hyphens")
+    return lease_root() / f"{platform}-{device_id}"
+
+
+def devices(platform=None):
+    """``(platform, device id, directory)`` for every lease directory under the root, optionally one platform."""
+    root = lease_root()
+    try:
+        names = sorted(os.listdir(root))
+    except OSError:
+        return []
+    found = []
+    for name in names:
+        kind, separator, ident = name.partition("-")
+        if (separator and _PLATFORM.fullmatch(kind) and _DEVICE_ID.fullmatch(ident) and ".." not in ident
+                and (platform is None or kind == platform) and (root / name).is_dir()):
+            found.append((kind, ident, root / name))
+    return found
 
 
 def _env_float(name, default, low, high):
@@ -50,58 +85,17 @@ def _env_float(name, default, low, high):
 def settings():
     """Bounded tuning knobs, read on each access so tests can change them."""
     return {
-        "idle_release_seconds": _env_float("IPHONE_USE_IDLE_RELEASE_SECONDS", 60.0, 1, 3600),
-        "wait_seconds": _env_float("IPHONE_USE_WAIT_SECONDS", 40.0, 0, 55),
-        "handover_settle_seconds": _env_float("IPHONE_USE_HANDOVER_SETTLE_SECONDS", 3.0, 0, 30),
-        "ticket_ttl_seconds": _env_float("IPHONE_USE_TICKET_TTL_SECONDS", 30.0, 1, 300),
-        "queue_hold_seconds": _env_float("IPHONE_USE_QUEUE_HOLD_SECONDS", 180.0, 0, 3600),
+        "idle_release_seconds": _env_float("DEVICE_LEASE_IDLE_RELEASE_SECONDS", 60.0, 1, 3600),
+        "wait_seconds": _env_float("DEVICE_LEASE_WAIT_SECONDS", 40.0, 0, 55),
+        "handover_settle_seconds": _env_float("DEVICE_LEASE_HANDOVER_SETTLE_SECONDS", 3.0, 0, 30),
+        "ticket_ttl_seconds": _env_float("DEVICE_LEASE_TICKET_TTL_SECONDS", 30.0, 1, 300),
+        "queue_hold_seconds": _env_float("DEVICE_LEASE_QUEUE_HOLD_SECONDS", 180.0, 0, 3600),
     }
 
 
-def lease_directory(state_dir):
-    """The lease lives per physical device, not per state directory.
-
-    ``IPHONE_USE_LEASE_DIR`` overrides it. Otherwise the configured UDID selects
-    ``~/.local/share/iphone-use/leases/<udid>``, so two state directories that
-    drive the same phone share one lock and two phones never block each other.
-    Before configuration the state directory itself holds the lease.
-    """
-    override = os.environ.get("IPHONE_USE_LEASE_DIR")
-    if override:
-        return Path(override).expanduser()
-    udid = None
-    try:
-        udid = json.loads((Path(state_dir) / "config.json").read_text()).get("udid")
-    except (OSError, ValueError, AttributeError):
-        pass
-    if isinstance(udid, str) and re.fullmatch(r"[A-Za-z0-9-]{8,64}", udid):
-        return LEASE_ROOT / udid
-    return Path(state_dir) / "lease"
-
-
-def needs_lease(name, args):
-    """Which calls occupy the phone: everything behind the operation lock plus service lifecycle."""
-    if name in UNLEASED_TOOLS:
-        return False
-    if name == "pua_setup":
-        return isinstance(args, dict) and args.get("action") in LEASED_SETUP_ACTIONS
-    if name == "pua_screen_action":
-        return isinstance(args, dict) and args.get("action") not in UNLEASED_SCREEN_ACTIONS
-    return True
-
-
-def is_mutation(name, args):
-    """Calls that act on whatever page is on screen; blocked until a fresh read after a handover.
-
-    The preview App's own gestures are the user's clicks on a live picture, so they
-    are not blocked. Service lifecycle does not touch the page either.
-    """
-    if name in READ_TOOLS or name in ("pua_setup", "pua_screen_action"):
-        return False
-    return True
-
-
 class LeaseError(Exception):
+    """Nothing was executed. ``details`` lets each channel word the error for its own users."""
+
     def __init__(self, code, message, **details):
         super().__init__(message)
         self.code = code
@@ -147,26 +141,35 @@ def _read_json(path):
     return data if isinstance(data, dict) else None
 
 
-class DeviceLease:
-    """One instance per process and lease directory; every Runtime in the process shares it.
+def _seconds_since(ts, now):
+    return round(now - ts, 1) if isinstance(ts, (int, float)) else None
 
-    ``flock`` treats two descriptors of the same file as two lockers even inside
-    one process, so sharing the descriptor is what makes a second Runtime (tests,
-    adapters, the gesture thread) cooperate instead of queueing behind itself.
+
+class DeviceLease:
+    """One instance per process and lease directory; every user in the process shares it.
+
+    ``flock`` treats two descriptors of the same file as two lockers even inside one process,
+    so sharing the descriptor is what makes a second user in the same process (another runtime
+    object, a gesture thread, a test) cooperate instead of queueing behind itself.
     """
 
     _instances = {}
     _instances_lock = threading.Lock()
 
     @classmethod
-    def get(cls, lease_dir):
+    def get(cls, lease_dir, transport=None, default_label=None):
+        """The process-wide lease for ``lease_dir``; ``transport`` names this channel, e.g. wda or kvm."""
         key = str(Path(lease_dir).expanduser().resolve(strict=False))
         with cls._instances_lock:
             lease = cls._instances.get(key)
             if lease is None:
                 lease = cls._instances[key] = cls(key)
             lease.users += 1
-            return lease
+        if transport:
+            lease.transport = str(transport)[:32]
+        if default_label:
+            lease.default_label = str(default_label)[:60]
+        return lease
 
     def __init__(self, lease_dir):
         self.dir = Path(lease_dir)
@@ -174,7 +177,8 @@ class DeviceLease:
         self.lock_path = self.dir / "device.lock"
         self.owner_path = self.dir / "device-owner.json"
         self.pid = os.getpid()
-        self.transport = TRANSPORT
+        self.transport = "unknown"
+        self.default_label = DEFAULT_LABEL
         self.users = 0
         self.label = None
         self.auto_label = None
@@ -197,20 +201,23 @@ class DeviceLease:
         return self._fd is not None
 
     @contextlib.contextmanager
-    def hold(self, name, args=None, wait_seconds=None):
-        """Run one phone call under the lease; acquire it first when this process lacks it."""
+    def hold(self, name, *, mutation=True, wait_seconds=None):
+        """Run one device call under the lease; acquire it first when this process lacks it.
+
+        ``name`` is recorded as the last call. ``mutation`` marks calls that act on whatever is on
+        screen: after another process used the device they raise ``fresh_observation_required``
+        until ``observed()``. ``wait_seconds=0`` never queues and never jumps ahead of a queue.
+        """
         with self._lock:
             if not self.holding:
                 self._acquire(settings()["wait_seconds"] if wait_seconds is None else wait_seconds)
-            if self.needs_observation and is_mutation(name, args):
+            if self.needs_observation and mutation:
                 raise LeaseError("fresh_observation_required",
-                                 "Another chat used the iPhone since this chat last looked at it. Take a fresh "
-                                 "pua_ready/pua_observe/pua_find first, then decide the action; nothing was executed.",
+                                 "Another process used the device since this process last observed it; observe "
+                                 "the screen first, then decide the action. Nothing was executed.",
                                  generation=self.generation)
             self._in_call += 1
             self._last_call = time.monotonic()
-            if name == "pua_launch_app" and isinstance(args, dict) and isinstance(args.get("bundle_id"), str):
-                self.auto_label = args["bundle_id"]
         try:
             yield self
         finally:
@@ -218,19 +225,26 @@ class DeviceLease:
                 self._in_call -= 1
                 self._last_call = time.monotonic()
                 if self.holding:
-                    self._write_owner(last_tool=name)
+                    self._write_owner(last_tool=str(name)[:64])
 
-    def observed(self, app=None):
-        """A fresh read of the current screen clears the handover requirement."""
+    def set_auto_label(self, label):
+        """A label taken from the work itself, e.g. the app just launched; an explicit claim label wins."""
+        if isinstance(label, str) and label:
+            with self._lock:
+                self.auto_label = label[:60]
+
+    def observed(self, auto_label=None):
+        """A fresh look at the current screen clears the handover requirement."""
         with self._lock:
             self.needs_observation = False
-            if isinstance(app, str) and app and self.label is None:
-                self.auto_label = app
+            if isinstance(auto_label, str) and auto_label and self.label is None:
+                self.auto_label = auto_label[:60]
 
     def claim(self, label=None, wait_seconds=None):
+        """Take the device now, optionally with an explicit task label other processes see."""
         with self._lock:
             if label:
-                self.label = label[:60]
+                self.label = str(label)[:60]
             if not self.holding:
                 self._acquire(settings()["wait_seconds"] if wait_seconds is None else wait_seconds)
             else:
@@ -238,12 +252,10 @@ class DeviceLease:
             return self.status()
 
     def release(self, reason="explicit"):
-        """Give the phone back now. A call in flight finishes first; this never cuts it short."""
+        """Hand the device back now and leave the queue. A call in flight finishes first; this never cuts it short."""
         with self._lock:
             self._drop_ticket()
-            if not self.holding:
-                return False
-            if self._in_call:
+            if not self.holding or self._in_call:
                 return False
             self._write_owner(released_at=time.time(), release_reason=reason)
             try:
@@ -264,18 +276,18 @@ class DeviceLease:
             now = time.time()
             holder = None
             if owner and "released_at" not in owner and _alive(owner.get("pid")):
-                holder = {"pid": owner.get("pid"), "label": owner.get("label") or "未命名任务",
-                          "transport": owner.get("transport", TRANSPORT),
+                holder = {"pid": owner.get("pid"), "label": owner.get("label") or DEFAULT_LABEL,
+                          "transport": owner.get("transport", "unknown"),
                           "since": _iso(owner.get("acquired_ts")),
-                          "held_seconds": round(now - owner["acquired_ts"], 1) if isinstance(owner.get("acquired_ts"), (int, float)) else None,
-                          "idle_seconds": round(now - owner["last_call_ts"], 1) if isinstance(owner.get("last_call_ts"), (int, float)) else None,
+                          "held_seconds": _seconds_since(owner.get("acquired_ts"), now),
+                          "idle_seconds": _seconds_since(owner.get("last_call_ts"), now),
                           "last_tool": owner.get("last_tool"),
                           "is_me": owner.get("pid") == self.pid}
             queue = []
             for position, ticket in enumerate(self._tickets(), 1):
-                queue.append({"position": position, "pid": ticket["pid"], "label": ticket.get("label") or "未命名任务",
-                              "transport": ticket.get("transport", TRANSPORT),
-                              "waiting_seconds": round(now - ticket["enqueued_ts"], 1) if isinstance(ticket.get("enqueued_ts"), (int, float)) else None,
+                queue.append({"position": position, "pid": ticket["pid"], "label": ticket.get("label") or DEFAULT_LABEL,
+                              "transport": ticket.get("transport", "unknown"),
+                              "waiting_seconds": _seconds_since(ticket.get("enqueued_ts"), now),
                               "is_me": ticket["pid"] == self.pid})
             return {"holder": holder, "queue": queue,
                     "me": {"pid": self.pid, "holding": self.holding, "needs_observation": self.needs_observation,
@@ -291,10 +303,10 @@ class DeviceLease:
         return {"waiting": waiting, "held_seconds": held, "idle_release_seconds": settings()["idle_release_seconds"]}
 
     def current_label(self):
-        return self.label or self.auto_label or "未命名任务"
+        return self.label or self.auto_label or self.default_label
 
     def close(self):
-        """Called by every Runtime.close(); the lease ends with the last user."""
+        """Called by every user that obtained the lease with ``get``; the lease ends with the last one."""
         with self._lock:
             self.users = max(0, self.users - 1)
             if self.users:
@@ -312,7 +324,7 @@ class DeviceLease:
         self._start_watchdog()
         deadline = time.monotonic() + max(0.0, float(wait_seconds))
         if wait_seconds <= 0:
-            # A non-blocking attempt never jumps ahead of a queue.
+            # A non-blocking attempt never jumps ahead of a queue and leaves no ticket.
             self._prune()
             if not self._tickets() and self._try_flock():
                 self._on_acquired()
@@ -337,17 +349,16 @@ class DeviceLease:
         holder = snapshot["holder"] or {}
         position = next((q["position"] for q in snapshot["queue"] if q["is_me"]), None)
         hold = settings()["queue_hold_seconds"]
-        who = holder.get("label") or "another chat"
-        idle = holder.get("idle_seconds")
-        where = f"'{who}' (pid {holder.get('pid')}, idle {idle}s)" if holder else "another process"
+        who = (f"'{holder.get('label')}' (pid {holder.get('pid')}, transport {holder.get('transport')}, "
+               f"idle {holder.get('idle_seconds')}s)") if holder else "another process"
         if code == "device_queued":
-            message = (f"The iPhone is in use by {where}; this chat is number {position} in the queue after waiting "
-                       f"{int(waited)}s. Call any phone tool again within {int(hold)}s to keep the place, or "
-                       f"pua_device(action=release) to leave the queue. Tell the user who holds the phone; nothing was executed.")
+            message = (f"The device is in use by {who}; this process is number {position} in the queue after "
+                       f"waiting {int(waited)}s. Call again within {int(hold)}s to keep the place. Nothing was executed.")
         else:
-            message = f"The iPhone is in use by {where}; nothing was sent."
+            message = f"The device is in use by {who}. Nothing was executed."
         raise LeaseError(code, message, holder=holder or None, position=position, waiting=len(snapshot["queue"]),
-                         keep_place_seconds=int(hold), idle_release_seconds=settings()["idle_release_seconds"])
+                         waited_seconds=int(waited), keep_place_seconds=int(hold),
+                         idle_release_seconds=settings()["idle_release_seconds"])
 
     def _try_flock(self):
         fd = os.open(self.lock_path, os.O_RDWR | os.O_CREAT | getattr(os, "O_CLOEXEC", 0), 0o600)
@@ -373,8 +384,8 @@ class DeviceLease:
         if handover:
             self.needs_observation = True
             if "released_at" not in previous:
-                # The previous holder died without releasing: one WDA request may still be in
-                # flight on the phone. Let it finish before the first command of this chat.
+                # The previous holder died without releasing: one device command may still be in
+                # flight. Let it finish before the first command of this process.
                 time.sleep(settings()["handover_settle_seconds"])
 
     def _write_owner(self, **extra):
@@ -385,10 +396,11 @@ class DeviceLease:
             current = None
         data = dict(current or {})
         data.update({"pid": self.pid, "label": self.current_label(), "transport": self.transport,
-                     "generation": self.generation, "last_call_ts": time.time(), "format": 1})
-        data.setdefault("acquired_ts", extra.pop("acquired_ts", self._acquired_at or time.time()))
+                     "generation": self.generation, "last_call_ts": time.time(), "format": PROTOCOL_FORMAT})
         if "acquired_ts" in extra:
             data["acquired_ts"] = extra.pop("acquired_ts")
+        else:
+            data.setdefault("acquired_ts", self._acquired_at or time.time())
         data.pop("released_at", None)
         data.pop("release_reason", None)
         data.update(extra)
@@ -405,7 +417,7 @@ class DeviceLease:
             return self._ticket
         path = self.queue_dir / f"{time.time_ns():020d}-{self.pid}.json"
         _write_json(path, {"pid": self.pid, "label": self.current_label(), "transport": self.transport,
-                           "enqueued_ts": time.time(), "refreshed_ts": time.time(), "format": 1})
+                           "enqueued_ts": time.time(), "refreshed_ts": time.time(), "format": PROTOCOL_FORMAT})
         self._ticket = path
         return path
 
@@ -427,19 +439,22 @@ class DeviceLease:
                 self._ticket.unlink()
             self._ticket = None
 
+    def _holder_pid(self):
+        owner = _read_json(self.owner_path)
+        return owner.get("pid") if owner and "released_at" not in owner and _alive(owner.get("pid")) else None
+
     def _tickets(self):
         """Live tickets in FIFO order; each carries its path."""
         ttl = settings()["ticket_ttl_seconds"]
         now = time.time()
-        owner = _read_json(self.owner_path)
-        holder_pid = owner.get("pid") if owner and "released_at" not in owner and _alive(owner.get("pid")) else None
+        holder_pid = self._holder_pid()
         result = []
         try:
             names = sorted(os.listdir(self.queue_dir))
         except OSError:
             return result
         for name in names:
-            if not name.endswith(".json") or name.endswith(".tmp"):
+            if not name.endswith(".json"):
                 continue
             path = self.queue_dir / name
             data = _read_json(path)
@@ -447,17 +462,15 @@ class DeviceLease:
                 continue
             pid = data.get("pid")
             refreshed = data.get("refreshed_ts")
-            live = _alive(pid) and isinstance(refreshed, (int, float)) and now - refreshed <= ttl and pid != holder_pid
-            if live:
+            if _alive(pid) and isinstance(refreshed, (int, float)) and now - refreshed <= ttl and pid != holder_pid:
                 result.append({**data, "path": path})
         return result
 
     def _prune(self):
-        """Remove tickets of dead, expired or already-holding processes."""
+        """Remove tickets of dead, expired or already-holding processes, and stale temporary files."""
         ttl = settings()["ticket_ttl_seconds"]
         now = time.time()
-        owner = _read_json(self.owner_path)
-        holder_pid = owner.get("pid") if owner and "released_at" not in owner and _alive(owner.get("pid")) else None
+        holder_pid = self._holder_pid()
         try:
             names = os.listdir(self.queue_dir)
         except OSError:
