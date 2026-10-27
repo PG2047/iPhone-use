@@ -1,3 +1,10 @@
+## 本地 0.3.1506
+
+- 锁目录改到与通道无关的 `~/.local/share/device-lease/ios-<udid>`，NanoKVM 等其他通道按同一约定加入同一个队列。旧版本的 `~/.local/share/iphone-use/leases/<udid>` 由迁移脚本以软链接接到新路径，新旧进程在过渡期共用同一把锁。
+- 锁库换成与平台无关的参考实现，`server/device_lease.py` 和 `DEVICE_LEASE.md` 原样同步自 phonebooth；工具分类、锁目录和报错措辞移到 `server/lease_policy.py`。
+- 可调参数改名为 `DEVICE_LEASE_IDLE_RELEASE_SECONDS`、`DEVICE_LEASE_WAIT_SECONDS`、`DEVICE_LEASE_HANDOVER_SETTLE_SECONDS`、`DEVICE_LEASE_TICKET_TTL_SECONDS`、`DEVICE_LEASE_QUEUE_HOLD_SECONDS`，另有 `DEVICE_LEASE_ROOT`；`IPHONE_USE_LEASE_DIR` 不变。
+- 修正同一进程空闲归还后再取得时，持有时长沿用第一次取得时间的问题。
+
 ## 本地 0.3.1505
 
 - 多个 Codex 对话共用一台 iPhone：手机工具自动按先来后到排队，连续调用期间保留控制权，60 秒无手机调用、`pua_device(action="release")` 或对话结束时归还；换手后先观察再动作，持有者崩溃只多等 3 秒，不需要重启手机。

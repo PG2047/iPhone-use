@@ -245,6 +245,10 @@ python3 scripts/package.py
 
 MIT License。第三方组件说明见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
+## 本地 0.3.1506
+
+锁目录改到与通道无关的 `~/.local/share/device-lease/ios-<udid>`，这样 NanoKVM 之类的其他控制通道可以按同一份约定（[DEVICE_LEASE.md](DEVICE_LEASE.md)）加入同一个队列。锁库换成与平台无关的参考实现，iPhone Use 自己的规则放在 `server/lease_policy.py`；可调参数改名为 `DEVICE_LEASE_*`。
+
 ## 本地 0.3.1505
 
 多个 Codex 对话可以共用同一台 iPhone，像共享打印机一样：谁先用谁拿到控制权，后来的对话自动排队；连续操作期间控制权保留，60 秒没有手机调用、调用 `pua_device(action="release")` 或对话结束时自动归还。换手后先看屏幕再动作；持有的对话崩溃时内核直接释放锁，不需要重启手机。任何对话都可以用 `pua_device(action="status")` 看谁在用、在做什么、排了几个。实现只有文件和 `flock`，没有常驻服务，约定见 [DEVICE_LEASE.md](DEVICE_LEASE.md)。
