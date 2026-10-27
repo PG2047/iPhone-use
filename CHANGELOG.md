@@ -1,3 +1,7 @@
+## 本地 0.3.1507
+
+- `pua_device` 增加 `quiet`：照常执行 status / claim / release，只返回 `{}`。Codex 的 Stop hook 只接受空输出或合法的 hook JSON；回合结束归还的 hook 改用 `pua_device(action="release", quiet=true)` 后，不再每轮被记为 Failed。
+
 ## 本地 0.3.1506
 
 - 锁目录改到与通道无关的 `~/.local/share/device-lease/ios-<udid>`，NanoKVM 等其他通道按同一约定加入同一个队列。旧版本的 `~/.local/share/iphone-use/leases/<udid>` 由迁移脚本以软链接接到新路径，新旧进程在过渡期共用同一把锁。

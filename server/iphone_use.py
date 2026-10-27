@@ -31,8 +31,8 @@ from device_lease import DeviceLease, LeaseError
 from lease_policy import OBSERVING_TOOLS, TRANSPORT, is_mutation, lease_directory, needs_lease, message as lease_message
 
 PUAError=WDAError
-VERSION="0.3.1506"
-SCREEN_URI="ui://iphone-use/phone-0.3.1506.html"
+VERSION="0.3.1507"
+SCREEN_URI="ui://iphone-use/phone-0.3.1507.html"
 # Codex scopes reuse to the host, chat, server and UI resource. A stable result
 # ID keeps repeated READY/open/pause/resume calls in that chat on one panel,
 # including after the MCP process reconnects; no device identifiers are needed.
