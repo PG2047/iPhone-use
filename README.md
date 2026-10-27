@@ -245,6 +245,17 @@ python3 scripts/package.py
 
 MIT License。第三方组件说明见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
+## 本地 0.3.1507
+
+`pua_device` 增加 `quiet` 参数，给 Codex hook 用：照常执行，只返回 `{}`。想让每轮对话结束时就把手机还回去，在 `~/.codex/hooks.json` 的 `hooks.Stop` 列表末尾加一组，再在 Codex 的 `/hooks` 里信任它：
+
+```json
+{"hooks": [{"type": "mcp_tool", "server": "iphone_use", "tool": "pua_device",
+            "input": {"action": "release", "quiet": true}, "timeout": 10}]}
+```
+
+加在末尾，已有 hook 的信任记录不会错位。旧版 iPhone Use 不认识 `quiet`，会拒绝这次调用，所以等已打开的对话都换成 0.3.1507（重启 Codex 或关掉旧对话）再加。
+
 ## 本地 0.3.1506
 
 锁目录改到与通道无关的 `~/.local/share/device-lease/ios-<udid>`，这样 NanoKVM 之类的其他控制通道可以按同一份约定（[DEVICE_LEASE.md](DEVICE_LEASE.md)）加入同一个队列。锁库换成与平台无关的参考实现，iPhone Use 自己的规则放在 `server/lease_policy.py`；可调参数改名为 `DEVICE_LEASE_*`。

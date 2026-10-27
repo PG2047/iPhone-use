@@ -250,6 +250,17 @@ MIT License. See [third-party notices](THIRD_PARTY_NOTICES.md).
 
 Click the live phone image to tap, or drag and release to swipe. Coordinates follow the displayed image as the panel resizes. Two-finger trackpad scrolling and mouse wheels scroll or page the phone, following the system scroll direction. Each wheel burst sends one swipe; momentum and input received during an operation are not queued. Long presses, phone multi-touch, pinch zoom, and keyboard input are not supported. Input is disabled while the preview is paused, offline, stale, or busy. Cancelled gestures and releases outside the image do nothing. Timed-out gestures are never replayed automatically; inspect the phone before trying again.
 
+## Local 0.3.1507
+
+`pua_device` gains `quiet` for Codex hooks: the action runs as usual and the reply is just `{}`. To hand the phone back at the end of every turn, append this group to `hooks.Stop` in `~/.codex/hooks.json`, then trust it in Codex `/hooks`:
+
+```json
+{"hooks": [{"type": "mcp_tool", "server": "iphone_use", "tool": "pua_device",
+            "input": {"action": "release", "quiet": true}, "timeout": 10}]}
+```
+
+Appending keeps the trust records of existing hooks in place. Older iPhone Use versions reject `quiet`, so add the hook once every open chat runs 0.3.1507 (restart Codex or close the older chats).
+
 ## Local 0.3.1506
 
 The lease now lives in the channel-neutral `~/.local/share/device-lease/ios-<udid>`, so other control channels such as a NanoKVM can join the same queue by following [DEVICE_LEASE.md](DEVICE_LEASE.md). The lock library is a platform-neutral reference implementation; iPhone Use's own rules moved to `server/lease_policy.py`, and the tuning variables are renamed `DEVICE_LEASE_*`.
