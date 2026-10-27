@@ -93,7 +93,7 @@ SCHEMAS={
  "collect_list":obj({"row_type":string(),"max_pages":num(1,10,"integer"),"end_selector":SEL}),
  "apps":obj({"query":string(max_length=100),"country":string(max_length=2),"source":string(enum=["auto","catalog","installed","apple"]),"limit":num(1,30,"integer")},("query",)),
  "doctor":obj({}),"ready":obj({"screenshot":{"type":"boolean","default":True,"description":"Also verify screenshot; false retains status/session/source/viewport/unlock checks."},"recover":{"type":"boolean","default":True,"description":"Normal task startup: omit or set true, so a persistent local.pid/XCTest fault can queue one bounded restart of a proven owned PUA. Use false only for an explicitly requested diagnostic/no-restart check, not a routine precheck. False is respected and returns ready=false, state=recovery_required when restart is needed; queued recovery returns state=recovering. Neither state proves readiness."}}),"metrics":obj({"reset":{"type":"boolean","default":False,"description":"Return the totals, then start a new measurement window."}}),
- "device":obj({"action":string(enum=["status","claim","release"]),"label":string("Task label other chats see.",max_length=60)},("action",)),
+ "device":obj({"action":string(enum=["status","claim","release"]),"label":string("Task label other chats see.",max_length=60),"quiet":{"type":"boolean","description":"Reply {} only; for hooks."}},("action",)),
  "setup":obj({"action":string(enum=["discover","fetch","configure","build","start","stop","status"]),"udid":string(),"team_id":string(),"bundle_id":string(),"source_dir":string(max_length=4096),"local_port":num(1024,65535,"integer"),"device_port":num(1024,65535,"integer"),"job_id":string(),"wait_seconds":{**num(0,30),"description":"Bounded wait for this job: start defaults to 20 seconds, status to 0. Use status with job_id and 20 to await an active start/recovery. Timeout keeps the job running; do not start again."}},("action",))
 }
 # Each batch operation carries the same closed argument schema as its standalone tool.
@@ -396,13 +396,17 @@ class Runtime:
             if note:data["coordination"]=note
 
     def device(self,args):
-        """Who holds the shared iPhone, claim it with a task label, or hand it back."""
+        """Who holds the shared iPhone, claim it with a task label, or hand it back.
+
+        quiet=true still performs the action but replies {}: a Codex Stop hook that calls
+        pua_device must print nothing or valid hook JSON, otherwise Codex marks it Failed."""
         try:
-            if args["action"]=="status":return self.lease.status()
-            if args["action"]=="claim":return self.lease.claim(args.get("label"),args.get("wait_seconds"))
-            return {"released":self.lease.release("explicit"),**self.lease.status()}
+            if args["action"]=="status":result=self.lease.status()
+            elif args["action"]=="claim":result=self.lease.claim(args.get("label"),args.get("wait_seconds"))
+            else:result={"released":self.lease.release("explicit"),**self.lease.status()}
         except LeaseError as exc:
             raise WDAError(exc.code,lease_message(exc),details=exc.details) from None
+        return {} if args.get("quiet") else result
 
     def _operate(self,name,args,lock_path,cache_path):
         with lock_path.open("a") as lock:

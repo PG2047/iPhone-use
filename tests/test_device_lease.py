@@ -13,7 +13,7 @@ sys.path.insert(0, str(ROOT / "server"))
 sys.path.insert(0, str(ROOT / "tests"))
 from device_lease import DeviceLease, LeaseError
 from lease_policy import is_mutation, lease_directory, needs_lease
-from iphone_use import Runtime
+from iphone_use import Runtime, tool_result
 from wda_client import WDAError
 from wda_controller import PhoneController
 from test_controller import FakeWDA
@@ -189,6 +189,23 @@ class SingleProcessTests(LeaseTestCase):
         self.assertIn("released_at", owner)
         self.assertEqual(owner["release_reason"], "explicit")
         self.assertFalse((self.lease_dir / "device-queue").exists() and any((self.lease_dir / "device-queue").iterdir()))
+
+    def test_quiet_release_hands_back_and_replies_with_an_empty_object(self):
+        # A Codex Stop hook calls pua_device at turn end. Codex accepts only empty output or
+        # hook JSON from it, so quiet must still release but reply with nothing else than {}.
+        runtime = self.make_runtime()
+        self.press_home(runtime)
+        self.assertTrue(runtime.lease.holding)
+        self.assertEqual(runtime.call("pua_device", {"action": "release", "quiet": True}), {})
+        self.assertFalse(runtime.lease.holding)
+        owner = self.owner()
+        self.assertIn("released_at", owner)
+        self.assertEqual(owner["release_reason"], "explicit")
+        self.assertEqual(runtime.call("pua_device", {"action": "status", "quiet": True}), {})
+        reply = tool_result(runtime, {"name": "pua_device", "arguments": {"action": "release", "quiet": True}})
+        self.assertEqual(reply, {"content": [{"type": "text", "text": "{}"}], "isError": False})
+        refused = tool_result(runtime, {"name": "pua_device", "arguments": {"action": "release", "quiet": "yes"}})
+        self.assertTrue(refused["isError"])
 
     def test_claim_labels_the_task_and_launch_sets_an_automatic_label(self):
         runtime = self.make_runtime()
