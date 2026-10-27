@@ -34,11 +34,11 @@ def main():
     parser.add_argument("--wait", type=float, default=5.0)
     parser.add_argument("--label")
     args = parser.parse_args()
-    lease = DeviceLease.get(args.lease_dir)
+    lease = DeviceLease.get(args.lease_dir, transport="wda")
     if args.label:
         lease.label = args.label
     try:
-        with lease.hold("pua_observe", {"mode": "tree"}, wait_seconds=args.wait if args.mode == "wait" else 0):
+        with lease.hold("pua_observe", mutation=False, wait_seconds=args.wait if args.mode == "wait" else 0):
             event("acquired", generation=lease.generation, handover=lease.handover)
     except LeaseError as error:
         event("error", code=error.code, details=error.details)

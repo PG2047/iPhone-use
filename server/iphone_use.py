@@ -25,7 +25,8 @@ from wda_apps import AppCatalog
 from wda_screen import ScreenHub
 import wda_image
 from analytics import Analytics
-from device_lease import DeviceLease, LeaseError, OBSERVING_TOOLS, lease_directory, needs_lease
+from device_lease import DeviceLease, LeaseError
+from lease_policy import OBSERVING_TOOLS, TRANSPORT, is_mutation, lease_directory, needs_lease, message as lease_message
 
 PUAError=WDAError
 VERSION="0.3.16"
@@ -302,7 +303,7 @@ class Runtime:
         self._device_lookup=None
         self.analytics=Analytics(self.state_dir,VERSION)
         # One lease per physical device, shared by every Runtime of this process.
-        self.lease=DeviceLease.get(lease_directory(self.state_dir))
+        self.lease=DeviceLease.get(lease_directory(self.state_dir),transport=TRANSPORT)
 
     def call(self,name,args):
         started=time.monotonic();data=None;error=None
@@ -352,9 +353,11 @@ class Runtime:
         if not needs_lease(name,args):
             yield;return
         try:
-            with self.lease.hold(name,args,wait_seconds=wait_seconds):yield
+            with self.lease.hold(name,mutation=is_mutation(name,args),wait_seconds=wait_seconds):
+                if name=="pua_launch_app":self.lease.set_auto_label(args.get("bundle_id"))
+                yield
         except LeaseError as exc:
-            raise WDAError(exc.code,exc.message,details=exc.details) from None
+            raise WDAError(exc.code,lease_message(exc),details=exc.details) from None
 
     def _after_operation(self,name,args,data):
         if not isinstance(data,dict):return
@@ -372,7 +375,7 @@ class Runtime:
             if args["action"]=="claim":return self.lease.claim(args.get("label"),args.get("wait_seconds"))
             return {"released":self.lease.release("explicit"),**self.lease.status()}
         except LeaseError as exc:
-            raise WDAError(exc.code,exc.message,details=exc.details) from None
+            raise WDAError(exc.code,lease_message(exc),details=exc.details) from None
 
     def _operate(self,name,args,lock_path,cache_path):
         with lock_path.open("a") as lock:

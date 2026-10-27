@@ -11,16 +11,16 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "server"))
 sys.path.insert(0, str(ROOT / "tests"))
-import device_lease
-from device_lease import DeviceLease, LeaseError, is_mutation, lease_directory, needs_lease
+from device_lease import DeviceLease, LeaseError
+from lease_policy import is_mutation, lease_directory, needs_lease
 from iphone_use import Runtime
 from wda_client import WDAError
 from wda_controller import PhoneController
 from test_controller import FakeWDA
 
 HELPER = ROOT / "tests" / "lease_helper.py"
-FAST = {"IPHONE_USE_IDLE_RELEASE_SECONDS": "1", "IPHONE_USE_WAIT_SECONDS": "1", "IPHONE_USE_TICKET_TTL_SECONDS": "2",
-        "IPHONE_USE_HANDOVER_SETTLE_SECONDS": "0.3", "IPHONE_USE_QUEUE_HOLD_SECONDS": "180", "IPHONE_USE_ANALYTICS": "0"}
+FAST = {"DEVICE_LEASE_IDLE_RELEASE_SECONDS": "1", "DEVICE_LEASE_WAIT_SECONDS": "1", "DEVICE_LEASE_TICKET_TTL_SECONDS": "2",
+        "DEVICE_LEASE_HANDOVER_SETTLE_SECONDS": "0.3", "DEVICE_LEASE_QUEUE_HOLD_SECONDS": "180", "IPHONE_USE_ANALYTICS": "0"}
 
 
 def wait_for(predicate, seconds=8.0, step=0.05):
@@ -84,7 +84,7 @@ class LeaseTestCase(unittest.TestCase):
     def helper(self, mode, *extra, env=None):
         process = subprocess.Popen([sys.executable, "-I", str(HELPER), str(self.lease_dir), mode, *extra],
                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
-                                   env={**os.environ, **FAST, "IPHONE_USE_IDLE_RELEASE_SECONDS": "60", **(env or {})})
+                                   env={**os.environ, **FAST, "DEVICE_LEASE_IDLE_RELEASE_SECONDS": "60", **(env or {})})
         self.helpers.append(process)
         return process
 
@@ -141,15 +141,15 @@ class ClassificationTests(unittest.TestCase):
     def test_lease_directory_follows_the_configured_device(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            saved_root, saved_env = device_lease.LEASE_ROOT, os.environ.pop("IPHONE_USE_LEASE_DIR", None)
-            device_lease.LEASE_ROOT = root / "leases"
+            saved_root, saved_env = os.environ.get("DEVICE_LEASE_ROOT"), os.environ.pop("IPHONE_USE_LEASE_DIR", None)
+            os.environ["DEVICE_LEASE_ROOT"] = str(root / "leases")
             try:
                 state_a = root / "a"; state_a.mkdir()
                 state_b = root / "b"; state_b.mkdir()
                 self.assertEqual(lease_directory(state_a), state_a / "lease")
                 (state_a / "config.json").write_text(json.dumps({"udid": "00008888-0000111122223333", "local_port": 18100}))
                 (state_b / "config.json").write_text(json.dumps({"udid": "00008888-0000111122223333", "local_port": 18101}))
-                self.assertEqual(lease_directory(state_a), root / "leases" / "00008888-0000111122223333")
+                self.assertEqual(lease_directory(state_a), root / "leases" / "ios-00008888-0000111122223333")
                 self.assertEqual(lease_directory(state_a), lease_directory(state_b), "same phone, same lock")
                 (state_b / "config.json").write_text(json.dumps({"udid": "00008120-0011223344556677"}))
                 self.assertNotEqual(lease_directory(state_a), lease_directory(state_b), "two phones, two locks")
@@ -158,7 +158,10 @@ class ClassificationTests(unittest.TestCase):
                 os.environ["IPHONE_USE_LEASE_DIR"] = str(root / "override")
                 self.assertEqual(lease_directory(state_a), root / "override")
             finally:
-                device_lease.LEASE_ROOT = saved_root
+                if saved_root is None:
+                    os.environ.pop("DEVICE_LEASE_ROOT", None)
+                else:
+                    os.environ["DEVICE_LEASE_ROOT"] = saved_root
                 os.environ.pop("IPHONE_USE_LEASE_DIR", None)
                 if saved_env is not None:
                     os.environ["IPHONE_USE_LEASE_DIR"] = saved_env
