@@ -129,11 +129,13 @@ class ToolLoadingTests(unittest.TestCase):
         # 0.1.14 published 39,084 bytes, 29,568 of them visible to the model in Codex.
         # 0.3.1505 adds pua_device (shared-device lease status/claim/release): about
         # 600 published and 450 visible bytes; the guards move by exactly that margin.
-        self.assertLess(json_bytes({"tools": TOOLS}), 31600)
+        # 0.3.1507 adds pua_device quiet (a reply a Codex hook accepts): 69 bytes each;
+        # both guards move by 100.
+        self.assertLess(json_bytes({"tools": TOOLS}), 31700)
         visible = sum(json_bytes({"name": tool["name"], "description": tool["description"],
                                   "parameters": codex_supported_schema(tool["inputSchema"])})
                       for tool in TOOLS if tool.get("_meta", {}).get("ui", {}).get("visibility") != ["app"])
-        self.assertLess(visible, 22500)
+        self.assertLess(visible, 22600)
 
     def test_batch_references_resolve_to_the_complete_runtime_contract(self):
         self.assertIn("$defs", self.batch)

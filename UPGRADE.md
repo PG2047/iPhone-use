@@ -116,12 +116,12 @@ iPhone Use 自己的策略（锁目录、哪些工具取锁、哪些改变屏幕
 | `Runtime._dispatch` | 预览工具栏 Home / 截图走 `self.leased(..., wait_seconds=0)`；`pua_device` 分支；`with self.leased(...)` 包住 `_operate`，之后 `_after_operation` |
 | `Runtime.leased / _after_operation / device / _operate` | 四个方法整体属于租约接入 |
 | `Runtime.close` | `self.lease.close()` |
-| `SCHEMAS["device"]`、`DESCRIPTIONS["device"]`、`READS` | `pua_device` 工具定义 |
+| `SCHEMAS["device"]`、`DESCRIPTIONS["device"]`、`READS` | `pua_device` 工具定义，含 `quiet`：回合结束归还的 Codex Stop hook 靠它只回 `{}`，丢了 hook 会被 Codex 记为 Failed |
 | `INSTRUCTIONS` | 末尾的多对话一段 |
 | `server/wda_access.py` | `begin()` 的 safe 名单含 `pua_device` |
 | `scripts/phone.py` | `--session` |
 | `scripts/package.py` | 工具计数 21 / 19，`DEVICE_LEASE.md` 在 FILES 里 |
-| `tests/test_tool_loading.py` | 目录预算 31600 / 22500 |
+| `tests/test_tool_loading.py` | 目录预算 31700 / 22600 |
 | `skills/`、`ui/src/app.ts` | 多对话段落与 `device_held` / `device_queued` 文案 |
 
 ## 安装后的验收
