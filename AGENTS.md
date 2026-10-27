@@ -20,6 +20,10 @@
 - 保留两项修复的回归测试。上游改变接口或 WDA 版本时适配测试和补丁，
   不得通过删测试、跳过校验或放宽监听地址使升级通过。
 
+- 按用户 2026-10-27 的要求，多对话设备租约的锁库 `server/device_lease.py` 和
+  `DEVICE_LEASE.md` 是 phonebooth 仓库参考实现的原样副本，只在 phonebooth 改，再用它的
+  `scripts/vendor.py` 同步；iPhone Use 专用的策略写在 `server/lease_policy.py`。
+
 ## 升级与验收
 
 - 当前维护分支为 `codex/iphone-use-p0-security`。先提交并建立回退点，再合并
