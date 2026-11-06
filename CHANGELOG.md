@@ -1,3 +1,7 @@
+## 本地 0.3.1508
+
+- 认证状态探测临时启用 WDA `useFirstMatch`，避免已解锁时元素 identity binding 超时；结束后恢复原设置。保留双次页面核验和认证暂停边界。
+
 ## 本地 0.3.1507
 
 - `pua_device` 增加 `quiet`：照常执行 status / claim / release，只返回 `{}`。Codex 的 Stop hook 只接受空输出或合法的 hook JSON；回合结束归还的 hook 改用 `pua_device(action="release", quiet=true)` 后，不再每轮被记为 Failed。

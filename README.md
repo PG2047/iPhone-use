@@ -245,6 +245,10 @@ python3 scripts/package.py
 
 MIT License。第三方组件说明见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
+## 本地 0.3.1508
+
+- 认证状态探测临时启用 WDA `useFirstMatch`，避免已解锁时元素 identity binding 超时；结束后恢复原设置。保留双次页面核验和认证暂停边界。
+
 ## 本地 0.3.1507
 
 `pua_device` 增加 `quiet` 参数，给 Codex hook 用：照常执行，只返回 `{}`。想让每轮对话结束时就把手机还回去，在 `~/.codex/hooks.json` 的 `hooks.Stop` 列表末尾加一组，再在 Codex 的 `/hooks` 里信任它：

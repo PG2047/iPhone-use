@@ -18,6 +18,8 @@ class ProbeClient(FakeWDA):
     def __init__(self):
         super().__init__()
         self.compact = False
+        self.first_match = False
+        self.identity_stalls = False
         self.blocker = False
         self.page = True
         self.empty = False
@@ -49,12 +51,15 @@ class ProbeClient(FakeWDA):
                 if not value and self.fail_restore:
                     raise WDAError("pua_timeout", "private backend text")
                 self.compact = value
+                self.first_match = payload["settings"].get("useFirstMatch", self.first_match)
                 self.depth = payload["settings"].get("snapshotMaxDepth", self.depth)
-            return {"value": {"shouldUseCompactResponses": self.compact, "snapshotMaxDepth": self.depth, "snapshotMaxChildren": 2147483647}}
+            return {"value": {"useFirstMatch": self.first_match, "shouldUseCompactResponses": self.compact, "snapshotMaxDepth": self.depth, "snapshotMaxChildren": 2147483647}}
         if path.endswith(("/element", "/elements")):
             self.calls.append((method, path, payload))
             assert self.compact, "Query without compact responses"
             self.on_query()
+            if self.identity_stalls and not self.first_match:
+                raise WDAError("pua_timeout", "identity binding stalled")
             if self.bulk_query_stalls and path.endswith("/elements"):
                 raise WDAError("action_uncertain", "bulk element identity serialization timed out", uncertain=True)
             predicate = payload["value"]
@@ -113,6 +118,12 @@ class AuthWaitTests(unittest.TestCase):
         self.assertTrue(result.get("resumed"), result)
         self.assertFalse(result["paused"])
         self.assertFalse(self.client.compact)
+
+    def test_auth_first_match_avoids_identity_binding_stall_and_restores_setting(self):
+        self.client.identity_stalls = True
+        result = self.wait()
+        self.assertTrue(result.get("resumed"), result)
+        self.assertFalse(self.client.first_match)
 
     def test_legacy_resume_alias_uses_the_same_phone_evidence_without_dialog(self):
         with patch("subprocess.run") as dialog:
