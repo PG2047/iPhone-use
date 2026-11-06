@@ -250,6 +250,10 @@ MIT License. See [third-party notices](THIRD_PARTY_NOTICES.md).
 
 Click the live phone image to tap, or drag and release to swipe. Coordinates follow the displayed image as the panel resizes. Two-finger trackpad scrolling and mouse wheels scroll or page the phone, following the system scroll direction. Each wheel burst sends one swipe; momentum and input received during an operation are not queued. Long presses, phone multi-touch, pinch zoom, and keyboard input are not supported. Input is disabled while the preview is paused, offline, stale, or busy. Cancelled gestures and releases outside the image do nothing. Timed-out gestures are never replayed automatically; inspect the phone before trying again.
 
+## Local 0.3.1508
+
+- Authentication probes temporarily enable WDA `useFirstMatch` to avoid identity-binding timeouts on an unlocked device, then restore the prior setting. Two stable page checks and authentication pause controls remain in place.
+
 ## Local 0.3.1507
 
 `pua_device` gains `quiet` for Codex hooks: the action runs as usual and the reply is just `{}`. To hand the phone back at the end of every turn, append this group to `hooks.Stop` in `~/.codex/hooks.json`, then trust it in Codex `/hooks`:

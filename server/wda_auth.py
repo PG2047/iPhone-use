@@ -150,13 +150,14 @@ class AuthWaiter:
                     request("POST", prefix + "/appium/settings", {"settings": {
                         **SESSION_SETTINGS, "shouldUseCompactResponses": True}})
                     settings = request("GET", prefix + "/appium/settings")
+                first_match = settings.get("useFirstMatch", False) if isinstance(settings, dict) else False
                 compact = settings.get("shouldUseCompactResponses") if isinstance(settings, dict) else None
                 if not isinstance(compact, bool):
                     raise WDAError("invalid_response", "Compact response mode is unavailable.")
                 if settings.get("snapshotMaxDepth", 0) < 50 or settings.get("snapshotMaxChildren", 0) < 2147483647:
                     raise WDAError("auth_snapshot_incomplete", "Restore normal snapshot settings before checking authentication.")
                 try:
-                    request("POST", prefix + "/appium/settings", {"settings": {"shouldUseCompactResponses": True}})
+                    request("POST", prefix + "/appium/settings", {"settings": {"shouldUseCompactResponses": True, "useFirstMatch": True}})
                     if request("GET", prefix + "/appium/settings").get("shouldUseCompactResponses") is not True:
                         raise WDAError("invalid_response", "Compact response mode was not applied.")
                     def exists(predicate):
@@ -197,6 +198,6 @@ class AuthWaiter:
                     # fails the caller leaves access paused; a later check can retry.
                     # All normal plugin sessions require rich responses. Restore that
                     # baseline even after a previous probe failed to restore it.
-                    client.request("POST", prefix + "/appium/settings", {"settings": {"shouldUseCompactResponses": SESSION_SETTINGS["shouldUseCompactResponses"]}}, timeout=3)
+                    client.request("POST", prefix + "/appium/settings", {"settings": {"shouldUseCompactResponses": SESSION_SETTINGS["shouldUseCompactResponses"], "useFirstMatch": first_match}}, timeout=3)
             finally:
                 client.close()
