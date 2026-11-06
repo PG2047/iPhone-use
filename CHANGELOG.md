@@ -1,5 +1,7 @@
 ## 本地 0.3.1508
 
+- [认证探测复盘](docs/user-guide/auth-probe-incident-2026-11-06.md)：失败阶段、错误归因、修复边界及实机验证。
+
 - 认证状态探测临时启用 WDA `useFirstMatch`，避免已解锁时元素 identity binding 超时；结束后恢复原设置。保留双次页面核验和认证暂停边界。
 
 ## 本地 0.3.1507
